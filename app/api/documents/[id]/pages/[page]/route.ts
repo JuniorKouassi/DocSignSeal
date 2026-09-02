@@ -1,7 +1,7 @@
 import { getContextOrNull } from '../../../../../../lib/auth/dal';
 import { getDocument } from '../../../../../../lib/documents/queries';
 import { getFileMeta, readFileBytes } from '../../../../../../lib/files/store';
-import { renderPageToPng } from '../../../../../../src/render.mjs';
+import { renderPageToPng } from '../../../../../../lib/render/client';
 
 export async function GET(
   _request: Request,

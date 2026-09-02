@@ -1,10 +1,14 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
-const nextConfig: NextConfig = {
-  // @napi-rs/canvas ships prebuilt native binaries per platform, and
-  // pdfjs-dist's Node code path expects to load its own files at runtime --
-  // both need to stay real Node dependencies rather than get bundled.
-  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist"],
-};
+const nextConfig: NextConfig = {};
+
+// Makes Cloudflare bindings (the render-service container, env vars, etc.)
+// available when running `next dev` locally, not just after a real deploy.
+// Must not run during `next build`: with Container bindings configured, it
+// requires a build id that only exists inside a real deploy/dev session.
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev();
+}
 
 export default nextConfig;

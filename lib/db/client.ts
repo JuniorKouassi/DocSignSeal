@@ -1,7 +1,6 @@
 import 'server-only';
-import { Pool, neonConfig } from '@neondatabase/serverless';
+import { Pool } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import ws from 'ws';
 import { schema } from './schema';
 
 /* Pool over WebSocket, not the plain neon-http driver: the audit chain
@@ -9,8 +8,11 @@ import { schema } from './schema';
    `SELECT ... FOR UPDATE` lock on the document row across a read and a
    write, which neon-http's stateless per-query HTTP calls cannot do.
    Still serverless-friendly -- this is Neon's documented way to get real
-   transactions from a serverless/edge runtime. */
-neonConfig.webSocketConstructor = ws;
+   transactions from a serverless/edge runtime.
+
+   No `ws` package/neonConfig.webSocketConstructor override needed: both
+   Cloudflare Workers and Node 22+ (local dev) provide a native global
+   WebSocket, which is all the underlying driver needs. */
 
 if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.');

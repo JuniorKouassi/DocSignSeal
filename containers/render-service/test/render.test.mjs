@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { getPageCount, renderPageToPng } from '../src/render.mjs';
 
-const bytes = await readFile(new URL('../design/flatten-example-output.pdf', import.meta.url));
+// Fixture lives in the main app; this container has no PDFs of its own.
+const bytes = await readFile(new URL('../../../design/flatten-example-output.pdf', import.meta.url));
 
 const count = await getPageCount(bytes);
 console.log('1. page count        :', count === 3);

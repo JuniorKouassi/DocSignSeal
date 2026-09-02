@@ -5,7 +5,7 @@ import { getCurrentContext } from '../auth/dal';
 import { storeFile } from '../files/store';
 import { db } from '../db/client';
 import { templates } from '../db/schema';
-import { getPageCount } from '../../src/render.mjs';
+import { getPageCount } from '../render/client';
 
 export type UploadTemplateState = {
   errors?: Record<string, string>;

@@ -8,34 +8,36 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node test/audit.test.mjs && node test/password.test.mjs && node test/render.test.mjs && node test/encryption.test.mjs && node test/document-fields.test.mjs",
+    "test": "node test/audit.test.mjs && node test/password.test.mjs && node test/encryption.test.mjs && node test/document-fields.test.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1125.0",
-    "@napi-rs/canvas": "^1.0.8",
+    "@cloudflare/containers": "^0.3.7",
     "@neondatabase/serverless": "^1.0.2",
     "@pdf-lib/fontkit": "^1.1.1",
     "drizzle-orm": "^0.45.2",
     "next": "16.3.4",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.3.289",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "resend": "^6.25.0",
-    "server-only": "^0.0.1",
-    "ws": "^8.21.3"
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.128.0"
   }
 }

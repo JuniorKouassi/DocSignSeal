@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "docsignseal",
+  "main": "./custom-worker.ts",
+  "compatibility_date": "2025-01-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  "services": [
+    { "binding": "WORKER_SELF_REFERENCE", "service": "docsignseal" }
+  ],
+
+  // OpenNext's own ISR/data cache, distinct from the document-storage bucket
+  // (S3-compatible, lib/storage/s3.ts) the app manages itself. Create this
+  // bucket (`wrangler r2 bucket create <name>`) and put its name here.
+  "r2_buckets": [
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "docsignseal-cache" }
+  ],
+
+  "images": { "binding": "IMAGES" },
+
+  // The PDF-page-to-PNG render service (containers/render-service/) --
+  // @napi-rs/canvas is a native addon that cannot run inside a Worker's V8
+  // isolate, so it runs as a real container instead. See lib/render/client.ts.
+  "containers": [
+    {
+      "class_name": "RenderContainer",
+      "image": "./containers/render-service/Dockerfile",
+      "max_instances": 2
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "RENDER_CONTAINER", "class_name": "RenderContainer" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["RenderContainer"] }
+  ]
+}
