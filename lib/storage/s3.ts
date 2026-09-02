@@ -1,0 +1,50 @@
+import 'server-only';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { randomUUID } from 'node:crypto';
+
+/* Storage is S3-compatible on purpose: the same client works against
+   Cloudflare R2 (set S3_ENDPOINT to the R2 account endpoint) or plain AWS S3
+   (leave S3_ENDPOINT unset) by changing environment variables only, per
+   HANDOFF.md ("Cloudflare R2 or S3, EU region"). Nothing in the app should
+   import @aws-sdk/client-s3 directly outside this file. */
+
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is not set.`);
+  return value;
+}
+
+const bucket = () => requireEnv('S3_BUCKET');
+
+const client = new S3Client({
+  region: process.env.S3_REGION || 'auto',
+  endpoint: process.env.S3_ENDPOINT || undefined,
+  forcePathStyle: Boolean(process.env.S3_ENDPOINT),
+  credentials: {
+    accessKeyId: requireEnv('S3_ACCESS_KEY_ID'),
+    secretAccessKey: requireEnv('S3_SECRET_ACCESS_KEY'),
+  },
+});
+
+/* Keys are organization-scoped so a leaked key from one tenant's listing
+   can't be guessed for another, and random rather than derived from the
+   filename so re-uploads never collide or leak the original name. */
+export function generateStorageKey(organizationId: string, extension: string) {
+  return `org/${organizationId}/${randomUUID()}${extension ? `.${extension}` : ''}`;
+}
+
+export async function putObject(storageKey: string, body: Buffer, contentType: string) {
+  await client.send(new PutObjectCommand({
+    Bucket: bucket(),
+    Key: storageKey,
+    Body: body,
+    ContentType: contentType,
+  }));
+}
+
+export async function getObject(storageKey: string): Promise<Buffer> {
+  const result = await client.send(new GetObjectCommand({ Bucket: bucket(), Key: storageKey }));
+  const bytes = await result.Body?.transformToByteArray();
+  if (!bytes) throw new Error(`Object not found: ${storageKey}`);
+  return Buffer.from(bytes);
+}

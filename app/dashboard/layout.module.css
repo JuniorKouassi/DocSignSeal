@@ -13,10 +13,32 @@
   border-bottom: 1px solid var(--dss-line);
 }
 
+.left {
+  display: flex;
+  align-items: center;
+  gap: var(--dss-space-5);
+}
+
 .brand {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.02em;
+  color: var(--dss-text);
+}
+
+.nav {
+  display: flex;
+  gap: var(--dss-space-4);
+}
+
+.nav a {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dss-text-muted);
+  text-decoration: none;
+}
+
+.nav a:hover {
   color: var(--dss-text);
 }
 

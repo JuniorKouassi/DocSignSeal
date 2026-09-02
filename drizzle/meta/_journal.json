@@ -15,6 +15,13 @@
       "when": 1788383560980,
       "tag": "0001_init_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788384623721,
+      "tag": "0002_templates_and_files",
+      "breakpoints": true
     }
   ]
 }

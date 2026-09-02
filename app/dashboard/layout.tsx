@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { getCurrentContext } from '../../lib/auth/dal';
 import { logout } from '../../lib/auth/actions';
 import styles from './layout.module.css';
@@ -8,7 +9,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <div className={styles.shell}>
       <header className={styles.header}>
-        <span className={styles.brand}>DocSignSeal</span>
+        <div className={styles.left}>
+          <span className={styles.brand}>DocSignSeal</span>
+          <nav className={styles.nav}>
+            <Link href="/dashboard/templates">Templates</Link>
+          </nav>
+        </div>
         <div className={styles.orgInfo}>
           <span className={styles.orgName}>{organization.name}</span>
           <span className={styles.roleBadge}>{membership.role}</span>
