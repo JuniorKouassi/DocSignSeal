@@ -1,10 +1,11 @@
 'use server';
 
-import { eq } from 'drizzle-orm';
+import { and, eq, ne } from 'drizzle-orm';
 import { appendAuditEvent, resolveSignerToken } from '../audit/store';
 import { db } from '../db/client';
 import { documents, documentFields, documentSigners } from '../db/schema';
 import { storeFile } from '../files/store';
+import { completeDocumentIfAllSigned } from '../documents/complete';
 
 /* Everything here is gated by the signer's own token, resolved fresh on
    every call -- never by a login session. This is the signer-facing half of
@@ -34,6 +35,12 @@ export async function getSigningView(rawToken: string): Promise<SigningViewResul
       .set({ status: 'viewed', viewedAt: new Date() })
       .where(eq(documentSigners.id, signer.id));
     await appendAuditEvent({ document_id: document.id, signer_id: signer.id, event: 'signer.viewed', actor: signer.email });
+
+    // draft ──send──> sent ──first view──> in_progress, per the status
+    // transition diagram in spec/schema-and-api.md.
+    await db.update(documents)
+      .set({ status: 'in_progress' })
+      .where(and(eq(documents.id, document.id), eq(documents.status, 'sent')));
   }
 
   const rows = await db.select({ field: documentFields, signerStatus: documentSigners.status })
@@ -142,6 +149,66 @@ export async function declineSigning(rawToken: string, reason: string): Promise<
     actor: signer.email,
     meta: { reason },
   });
+
+  return { ok: true };
+}
+
+function fieldSatisfied(field: typeof documentFields.$inferSelect): boolean {
+  switch (field.type) {
+    case 'signature':
+    case 'initials':
+      return Array.isArray(field.strokeData) && field.strokeData.length > 0;
+    case 'attachment':
+      return field.valueFileId != null;
+    case 'checkbox':
+      return field.valueText === 'true';
+    default:
+      return typeof field.valueText === 'string' && field.valueText.trim().length > 0;
+  }
+}
+
+/* spec/schema-and-api.md: POST /sign/:token/complete { consent: true,
+   signature_field_id }. Marks this signer done, then checks whether every
+   signer on the document is now done -- if so, triggers HANDOFF.md build
+   step 6 (flatten, seal, store, document.completed). */
+export async function completeSigning(rawToken: string, consent: boolean, signatureFieldId: string): Promise<SaveFieldResult> {
+  if (!consent) return { ok: false, error: 'Consent is required to complete signing.' };
+
+  const resolution = await resolveSignerToken(rawToken);
+  if (!resolution.ok) return { ok: false, error: resolution.reason };
+  if (!resolution.editable) return { ok: false, error: 'Not your turn to sign yet.' };
+
+  const { document, signer } = resolution;
+
+  const myFields = await db.select().from(documentFields)
+    .where(and(eq(documentFields.documentId, document.id), eq(documentFields.signerId, signer.id)));
+
+  const signatureField = myFields.find((f) => f.id === signatureFieldId && (f.type === 'signature' || f.type === 'initials'));
+  if (!signatureField) return { ok: false, error: 'Choose a valid signature field.' };
+  if (!Array.isArray(signatureField.strokeData) || signatureField.strokeData.length === 0) {
+    return { ok: false, error: 'Draw your signature first.' };
+  }
+
+  const missing = myFields.filter((f) => f.required && !fieldSatisfied(f));
+  if (missing.length) {
+    return { ok: false, error: `Fill in ${missing.length} more required field${missing.length === 1 ? '' : 's'} first.` };
+  }
+
+  const [claimed] = await db.update(documentSigners)
+    .set({ status: 'signed', signedAt: new Date() })
+    .where(and(eq(documentSigners.id, signer.id), ne(documentSigners.status, 'signed')))
+    .returning({ id: documentSigners.id });
+  if (!claimed) return { ok: false, error: 'You already signed this document.' };
+
+  await appendAuditEvent({
+    document_id: document.id,
+    signer_id: signer.id,
+    event: 'signer.signed',
+    actor: signer.email,
+    meta: { signature_field_id: signatureFieldId, consent: true },
+  });
+
+  await completeDocumentIfAllSigned(document.id);
 
   return { ok: true };
 }

@@ -151,6 +151,12 @@ export const documents = pgTable('documents', {
   expiresAt: timestamp('expires_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   contentSha256: text('content_sha256'),
+  // Not in spec/schema-and-api.md's documents table -- added because
+  // HANDOFF.md's step 6 explicitly calls sealDocument() and its output
+  // (audit chain head bound to the completed file's hash) needs somewhere
+  // to live. Recomputable at any time from contentSha256 + the chain, so
+  // this is a cache of that binding, not a second source of truth.
+  seal: text('seal'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('documents_org_status_created_idx').on(t.organizationId, t.status, t.createdAt),

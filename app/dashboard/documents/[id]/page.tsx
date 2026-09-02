@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentContext } from '../../../../lib/auth/dal';
 import { getDocument, getDocumentSigners } from '../../../../lib/documents/queries';
@@ -27,7 +28,16 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
           </span>
         </div>
         {document.status === 'draft' && <SendButton documentId={document.id} />}
+        {document.status === 'completed' && (
+          <Link href={`/api/documents/${document.id}/download`} className={styles.sendButton}>Download sealed PDF</Link>
+        )}
       </div>
+
+      {document.status === 'completed' && document.seal && (
+        <p className={styles.signerMeta} style={{ marginBottom: 'var(--dss-space-4)', wordBreak: 'break-all' }}>
+          Seal: {document.seal}
+        </p>
+      )}
 
       <div className={styles.section}>
         <h2 className={styles.sectionTitle}>Signers</h2>

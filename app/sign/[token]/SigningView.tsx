@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
-import { saveFieldValue, uploadAttachment, declineSigning } from '../../../lib/signing/actions';
+import { saveFieldValue, uploadAttachment, declineSigning, completeSigning } from '../../../lib/signing/actions';
 import { FIELD_TYPE_LABELS, type FieldType } from '../../../lib/templates/field-types';
 import styles from './SigningView.module.css';
 
@@ -24,6 +24,25 @@ type SigningField = {
   signerStatus: string;
 };
 
+/* Mirrors lib/signing/actions.ts's server-side fieldSatisfied() so the
+   "Finish signing" button reflects real state -- the server re-checks this
+   independently before ever completing, this is purely for UX. */
+function isSatisfiedClient(field: SigningField): boolean {
+  switch (field.type) {
+    case 'signature':
+    case 'initials':
+      return Array.isArray(field.strokeData) && field.strokeData.length > 0;
+    case 'attachment':
+      return field.valueFileId != null;
+    case 'checkbox':
+      return field.valueText === 'true';
+    default:
+      return typeof field.valueText === 'string' && field.valueText.trim().length > 0;
+  }
+}
+
+type OnSatisfied = (fieldId: string, satisfied: boolean) => void;
+
 export default function SigningView({
   token,
   pageCount,
@@ -39,6 +58,17 @@ export default function SigningView({
 }) {
   const [declinePending, startDeclineTransition] = useTransition();
   const [declineError, setDeclineError] = useState<string | null>(null);
+  const [fieldStatus, setFieldStatus] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(fields.filter((f) => f.signerId === signerId).map((f) => [f.id, isSatisfiedClient(f)]))
+  );
+  const [consent, setConsent] = useState(false);
+  const [completePending, startCompleteTransition] = useTransition();
+  const [completeError, setCompleteError] = useState<string | null>(null);
+  const [completed, setCompleted] = useState(false);
+
+  const handleSatisfied: OnSatisfied = (fieldId, satisfied) => {
+    setFieldStatus((s) => ({ ...s, [fieldId]: satisfied }));
+  };
 
   function handleDecline() {
     const reason = window.prompt('Reason for declining (optional):', '') ?? '';
@@ -47,6 +77,30 @@ export default function SigningView({
       const result = await declineSigning(token, reason);
       if (result.ok) window.location.reload();
       else setDeclineError(result.error);
+    });
+  }
+
+  if (completed) {
+    return (
+      <div className={styles.pageWrap}>
+        <p className={styles.pageLabel}>You&rsquo;re done</p>
+        <p>Thank you for signing. Once every signer has finished, the sealed document is available to the sender.</p>
+      </div>
+    );
+  }
+
+  const myFields = fields.filter((f) => f.signerId === signerId);
+  const requiredSatisfied = myFields.filter((f) => f.required).every((f) => fieldStatus[f.id]);
+  const signatureCandidate = myFields.find((f) => (f.type === 'signature' || f.type === 'initials') && fieldStatus[f.id]);
+  const canFinish = editable && requiredSatisfied && Boolean(signatureCandidate) && consent;
+
+  function handleFinish() {
+    if (!signatureCandidate) return;
+    setCompleteError(null);
+    startCompleteTransition(async () => {
+      const result = await completeSigning(token, consent, signatureCandidate.id);
+      if (result.ok) setCompleted(true);
+      else setCompleteError(result.error);
     });
   }
 
@@ -59,18 +113,45 @@ export default function SigningView({
             {/* eslint-disable-next-line @next/next/no-img-element -- server-rendered PNG, not a static asset */}
             <img src={`/api/sign/${token}/pages/${page}`} alt={`Page ${page}`} />
             {fields.filter((f) => f.page === page).map((f) => (
-              <FieldControl key={f.id} token={token} field={f} isOwn={f.signerId === signerId} editable={editable} />
+              <FieldControl
+                key={f.id}
+                token={token}
+                field={f}
+                isOwn={f.signerId === signerId}
+                editable={editable}
+                onSatisfied={handleSatisfied}
+              />
             ))}
           </div>
         </div>
       ))}
 
-      <div className={styles.actions}>
-        <button type="button" className={styles.declineBtn} onClick={handleDecline} disabled={declinePending}>
-          {declinePending ? 'Declining…' : 'Decline to sign'}
-        </button>
+      <div className={styles.pageWrap}>
+        {editable && (
+          <label>
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            {' '}I agree this constitutes my legal signature on this document.
+          </label>
+        )}
+        <div className={styles.actions} style={{ justifyContent: 'space-between', marginTop: 'var(--dss-space-3)' }}>
+          <button type="button" className={styles.declineBtn} onClick={handleDecline} disabled={declinePending}>
+            {declinePending ? 'Declining…' : 'Decline to sign'}
+          </button>
+          {editable && (
+            <button
+              type="button"
+              className={styles.declineBtn}
+              style={{ color: 'var(--dss-signed-fg)' }}
+              onClick={handleFinish}
+              disabled={!canFinish || completePending}
+            >
+              {completePending ? 'Finishing…' : 'Finish signing'}
+            </button>
+          )}
+        </div>
+        {completeError && <p style={{ color: 'var(--dss-declined-fg)', fontSize: 13, textAlign: 'right' }}>{completeError}</p>}
+        {declineError && <p style={{ color: 'var(--dss-declined-fg)', fontSize: 13, textAlign: 'right' }}>{declineError}</p>}
       </div>
-      {declineError && <p style={{ color: 'var(--dss-declined-fg)', fontSize: 13, textAlign: 'right' }}>{declineError}</p>}
     </div>
   );
 }
@@ -80,11 +161,13 @@ function FieldControl({
   field,
   isOwn,
   editable,
+  onSatisfied,
 }: {
   token: string;
   field: SigningField;
   isOwn: boolean;
   editable: boolean;
+  onSatisfied: OnSatisfied;
 }) {
   const box: React.CSSProperties = {
     left: `${field.x}%`,
@@ -108,7 +191,7 @@ function FieldControl({
 
   return (
     <div className={`${styles.field} ${styles.own}`} style={box}>
-      <OwnFieldInput token={token} field={field} disabled={!editable} />
+      <OwnFieldInput token={token} field={field} disabled={!editable} onSatisfied={onSatisfied} />
     </div>
   );
 }
@@ -123,22 +206,24 @@ function useSaveStatus() {
   return { saved, pending, startTransition, flashSaved };
 }
 
+type FieldInputProps = { token: string; field: SigningField; disabled: boolean; onSatisfied: OnSatisfied };
+
 /* Dispatches to a type-specific component rather than branching internally,
    so each mounted field always calls the same hooks in the same order --
    branching with hooks inside one component per field.type would violate
    the Rules of Hooks even though field.type never changes after mount. */
-function OwnFieldInput({ token, field, disabled }: { token: string; field: SigningField; disabled: boolean }) {
+function OwnFieldInput({ token, field, disabled, onSatisfied }: FieldInputProps) {
   switch (field.type) {
-    case 'checkbox': return <CheckboxInput token={token} field={field} disabled={disabled} />;
-    case 'dropdown': return <DropdownInput token={token} field={field} disabled={disabled} />;
+    case 'checkbox': return <CheckboxInput token={token} field={field} disabled={disabled} onSatisfied={onSatisfied} />;
+    case 'dropdown': return <DropdownInput token={token} field={field} disabled={disabled} onSatisfied={onSatisfied} />;
     case 'signature':
-    case 'initials': return <DrawingPad token={token} field={field} disabled={disabled} />;
-    case 'attachment': return <AttachmentInput token={token} field={field} disabled={disabled} />;
-    default: return <TextInput token={token} field={field} disabled={disabled} />;
+    case 'initials': return <DrawingPad token={token} field={field} disabled={disabled} onSatisfied={onSatisfied} />;
+    case 'attachment': return <AttachmentInput token={token} field={field} disabled={disabled} onSatisfied={onSatisfied} />;
+    default: return <TextInput token={token} field={field} disabled={disabled} onSatisfied={onSatisfied} />;
   }
 }
 
-function CheckboxInput({ token, field, disabled }: { token: string; field: SigningField; disabled: boolean }) {
+function CheckboxInput({ token, field, disabled, onSatisfied }: FieldInputProps) {
   const { saved, startTransition, flashSaved } = useSaveStatus();
   const [checked, setChecked] = useState(field.valueText === 'true');
   return (
@@ -152,6 +237,7 @@ function CheckboxInput({ token, field, disabled }: { token: string; field: Signi
           startTransition(async () => {
             await saveFieldValue(token, field.id, { valueText: e.target.checked ? 'true' : 'false' });
             flashSaved();
+            onSatisfied(field.id, e.target.checked);
           });
         }}
       />
@@ -160,7 +246,7 @@ function CheckboxInput({ token, field, disabled }: { token: string; field: Signi
   );
 }
 
-function DropdownInput({ token, field, disabled }: { token: string; field: SigningField; disabled: boolean }) {
+function DropdownInput({ token, field, disabled, onSatisfied }: FieldInputProps) {
   const { saved, startTransition, flashSaved } = useSaveStatus();
   const options = Array.isArray(field.meta.options) ? (field.meta.options as string[]) : [];
   const [value, setValue] = useState(field.valueText ?? '');
@@ -174,6 +260,7 @@ function DropdownInput({ token, field, disabled }: { token: string; field: Signi
           startTransition(async () => {
             await saveFieldValue(token, field.id, { valueText: e.target.value });
             flashSaved();
+            onSatisfied(field.id, e.target.value.trim().length > 0);
           });
         }}
       >
@@ -185,7 +272,7 @@ function DropdownInput({ token, field, disabled }: { token: string; field: Signi
   );
 }
 
-function AttachmentInput({ token, field, disabled }: { token: string; field: SigningField; disabled: boolean }) {
+function AttachmentInput({ token, field, disabled, onSatisfied }: FieldInputProps) {
   const { saved, pending, startTransition, flashSaved } = useSaveStatus();
   return (
     <div className={styles.fileCell}>
@@ -198,8 +285,9 @@ function AttachmentInput({ token, field, disabled }: { token: string; field: Sig
           const formData = new FormData();
           formData.set('file', file);
           startTransition(async () => {
-            await uploadAttachment(token, field.id, formData);
+            const result = await uploadAttachment(token, field.id, formData);
             flashSaved();
+            onSatisfied(field.id, result.ok);
           });
         }}
       />
@@ -208,7 +296,7 @@ function AttachmentInput({ token, field, disabled }: { token: string; field: Sig
   );
 }
 
-function TextInput({ token, field, disabled }: { token: string; field: SigningField; disabled: boolean }) {
+function TextInput({ token, field, disabled, onSatisfied }: FieldInputProps) {
   const { saved, startTransition, flashSaved } = useSaveStatus();
   const inputType = field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text';
   const [value, setValue] = useState(field.valueText ?? '');
@@ -224,6 +312,7 @@ function TextInput({ token, field, disabled }: { token: string; field: SigningFi
           startTransition(async () => {
             await saveFieldValue(token, field.id, { valueText: value });
             flashSaved();
+            onSatisfied(field.id, value.trim().length > 0);
           });
         }}
       />
@@ -232,7 +321,7 @@ function TextInput({ token, field, disabled }: { token: string; field: SigningFi
   );
 }
 
-function DrawingPad({ token, field, disabled }: { token: string; field: SigningField; disabled: boolean }) {
+function DrawingPad({ token, field, disabled, onSatisfied }: FieldInputProps) {
   const { saved, pending, startTransition, flashSaved } = useSaveStatus();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const strokesRef = useRef<Stroke[]>(field.strokeData ?? []);
@@ -295,6 +384,7 @@ function DrawingPad({ token, field, disabled }: { token: string; field: SigningF
     startTransition(async () => {
       await saveFieldValue(token, field.id, { strokeData: strokesRef.current });
       flashSaved();
+      onSatisfied(field.id, true);
     });
   }
 
@@ -305,6 +395,7 @@ function DrawingPad({ token, field, disabled }: { token: string; field: SigningF
     startTransition(async () => {
       await saveFieldValue(token, field.id, { strokeData: [] });
       flashSaved();
+      onSatisfied(field.id, false);
     });
   }
 
