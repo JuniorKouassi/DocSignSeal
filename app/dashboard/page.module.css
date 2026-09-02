@@ -1,0 +1,21 @@
+.card {
+  background: var(--dss-paper);
+  border: 1px solid var(--dss-line);
+  border-radius: var(--dss-radius-lg);
+  padding: var(--dss-space-5);
+  max-width: 480px;
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 var(--dss-space-2);
+  color: var(--dss-text);
+}
+
+.body {
+  font-size: 14px;
+  color: var(--dss-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}

@@ -1,0 +1,28 @@
+.wrap {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--dss-space-5) var(--dss-space-4);
+}
+
+.card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--dss-paper);
+  border: 1px solid var(--dss-line);
+  border-radius: var(--dss-radius-lg);
+  padding: var(--dss-space-6) var(--dss-space-5);
+}
+
+.mark {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dss-primary);
+  text-align: center;
+  text-decoration: none;
+  margin-bottom: var(--dss-space-4);
+}

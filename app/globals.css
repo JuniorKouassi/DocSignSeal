@@ -1,0 +1,30 @@
+@import "../design/tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--dss-wash);
+  color: var(--dss-text);
+  font-family: var(--dss-font-ui);
+}
+
+a {
+  color: var(--dss-primary);
+}
+
+button {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--dss-focus);
+}

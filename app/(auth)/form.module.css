@@ -1,0 +1,78 @@
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--dss-space-4);
+  text-align: center;
+  color: var(--dss-text);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--dss-space-3);
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dss-text-muted);
+}
+
+.field input {
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: var(--dss-radius);
+  border: 1px solid var(--dss-line-strong);
+  background: var(--dss-paper);
+  color: var(--dss-text);
+}
+
+.field input:focus-visible {
+  border-color: var(--dss-primary);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--dss-declined-fg);
+  margin: 2px 0 0;
+}
+
+.formError {
+  font-size: 14px;
+  color: var(--dss-declined-fg);
+  background: var(--dss-declined-bg);
+  border-radius: var(--dss-radius);
+  padding: 10px 12px;
+  margin-bottom: var(--dss-space-3);
+}
+
+.submit {
+  width: 100%;
+  margin-top: var(--dss-space-2);
+  padding: 11px;
+  border: none;
+  border-radius: var(--dss-radius);
+  background: var(--dss-navy);
+  color: var(--dss-text-invert);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:hover {
+  background: var(--dss-navy-hover);
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.switch {
+  text-align: center;
+  font-size: 13px;
+  color: var(--dss-text-muted);
+  margin-top: var(--dss-space-4);
+}
