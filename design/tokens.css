@@ -1,0 +1,73 @@
+/* DocSignSeal design tokens
+   One source of truth for the web app, the marketing site, and the mobile build.
+   Import this before any component styles. */
+
+:root {
+  /* Brand */
+  --dss-navy:        #17244C;  /* headers, body text, primary buttons */
+  --dss-navy-hover:  #0F1A3A;
+  --dss-primary:     #3D5A9E;  /* links, active states, focus */
+  --dss-blue:        #8FAEDC;  /* the Vyra periwinkle, surfaces and accents */
+  --dss-tint:        #DCE7F7;  /* selected rows, badges, hover fills */
+  --dss-wash:        #F2F6FC;  /* app background */
+  --dss-paper:       #FFFFFF;  /* document surface, cards */
+
+  /* Text. Only these three carry copy. Never set text in --dss-blue. */
+  --dss-text:        #17244C;
+  --dss-text-muted:  #5A6784;
+  --dss-text-faint:  #8A95AD;
+  --dss-text-invert: #FFFFFF;
+
+  /* Lines */
+  --dss-line:        #DCE7F7;
+  --dss-line-strong: #B9CCE8;
+
+  /* Status. Never blue, blue is the brand. */
+  --dss-signed-bg:     #E1F0E8;
+  --dss-signed-fg:     #1F5138;
+  --dss-waiting-bg:    #FBEEDC;
+  --dss-waiting-fg:    #7A4E0C;
+  --dss-declined-bg:   #FBE9E9;
+  --dss-declined-fg:   #8C2A2A;
+  --dss-draft-bg:      #EDEFF3;
+  --dss-draft-fg:      #4A5468;
+
+  /* Ink. What a signer draws with. Distinct from brand colour on purpose. */
+  --dss-ink-blue:  #1B3FA8;  /* default: marks an original in francophone practice */
+  --dss-ink-black: #101010;
+  --dss-ink-green: #0F5C34;
+  --dss-ink-red:   #A81B1B;
+
+  /* Recipient colours for field assignment. Must stay distinguishable
+     from every status colour above, and from each other when colourblind. */
+  --dss-signer-1: #3D5A9E;
+  --dss-signer-2: #1D7A6B;
+  --dss-signer-3: #7A4EA8;
+  --dss-signer-4: #A85E1B;
+
+  /* Type */
+  --dss-font-ui:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --dss-font-doc: Georgia, "Times New Roman", serif;
+
+  /* Shape and rhythm */
+  --dss-radius:    6px;
+  --dss-radius-lg: 12px;
+  --dss-radius-pill: 999px;
+  --dss-space-1: 4px;
+  --dss-space-2: 8px;
+  --dss-space-3: 12px;
+  --dss-space-4: 16px;
+  --dss-space-5: 24px;
+  --dss-space-6: 32px;
+
+  /* Focus. Visible, never removed. */
+  --dss-focus: 0 0 0 3px rgba(61, 90, 158, .35);
+}
+
+/* Rules worth enforcing in review:
+   1. The document page is always --dss-paper. Never tint the page itself.
+   2. Status is never communicated by colour alone. Pair every badge with a word.
+   3. Signature ink is --dss-ink-*, never --dss-primary. Brand blue on a document
+      reads as software, not as a signature.
+   4. Contrast floor: body copy at 4.5:1, large text and icons at 3:1.
+      --dss-blue and --dss-tint are surface colours only. */

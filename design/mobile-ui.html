@@ -1,0 +1,404 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --navy:#17244C; --primary:#3D5A9E; --blue:#8FAEDC; --tint:#DCE7F7;
+    --wash:#F2F6FC; --paper:#FFFFFF; --line:#DCE7F7; --line-2:#B9CCE8;
+    --muted:#5A6784; --faint:#8A95AD;
+    --signed-bg:#E1F0E8; --signed:#1F5138;
+    --wait-bg:#FBEEDC;   --wait:#7A4E0C;
+    --decl-bg:#FBE9E9;   --decl:#8C2A2A;
+    --draft-bg:#EDEFF3;  --draft:#4A5468;
+    --ink:#1B3FA8;
+    --r:6px; --rlg:12px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#0E1526;color:var(--navy);
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       display:flex;justify-content:center;padding:12px}
+
+  .phone{width:100%;max-width:392px;background:var(--wash);border-radius:26px;
+         overflow:hidden;position:relative;display:flex;flex-direction:column;
+         height:min(844px,94vh);box-shadow:0 0 0 8px #1B2438}
+  .statusbar{height:26px;background:var(--wash);display:flex;align-items:center;
+             justify-content:space-between;padding:0 18px;font-size:11px;color:var(--faint)}
+
+  .screen{flex:1;overflow-y:auto;padding:0 16px 90px;display:none}
+  .screen.on{display:block}
+
+  h1{font-size:26px;margin:10px 0 14px;letter-spacing:-.02em}
+  h2{font-size:13px;font-weight:600;color:var(--muted);margin:20px 0 8px}
+
+  .segs{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+  .segs::-webkit-scrollbar{display:none}
+  .seg{white-space:nowrap;border:1px solid var(--line-2);background:var(--paper);
+       color:var(--muted);border-radius:999px;padding:7px 13px;font-size:13px;cursor:pointer}
+  .seg[aria-pressed="true"]{background:var(--navy);border-color:var(--navy);color:#fff}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:var(--rlg);
+        padding:12px;margin-bottom:10px;display:flex;gap:12px;align-items:center;cursor:pointer}
+  .thumb{width:44px;height:58px;border-radius:4px;border:1px solid var(--line);
+         background:#fff;flex:none;position:relative;overflow:hidden}
+  .thumb::before{content:"";position:absolute;left:6px;right:6px;top:8px;height:2px;background:var(--tint);
+                 box-shadow:0 6px 0 var(--tint),0 12px 0 var(--tint),0 18px 0 var(--tint)}
+  .thumb .seal{position:absolute;left:7px;bottom:6px;width:15px;height:15px;border-radius:50%;
+               border:1.5px solid var(--ink);opacity:.75}
+  .meta{min-width:0;flex:1}
+  .meta b{display:block;font-weight:500;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta span{font-size:13px;color:var(--muted)}
+
+  .pill{display:inline-block;font-size:12px;padding:3px 10px;border-radius:999px;margin-top:5px}
+  .p-signed{background:var(--signed-bg);color:var(--signed)}
+  .p-wait{background:var(--wait-bg);color:var(--wait)}
+  .p-decl{background:var(--decl-bg);color:var(--decl)}
+  .p-draft{background:var(--draft-bg);color:var(--draft)}
+
+  .empty{text-align:center;padding:48px 20px;color:var(--muted);font-size:14px}
+
+  .fab{position:absolute;right:16px;bottom:78px;width:54px;height:54px;border-radius:50%;
+       background:var(--navy);color:#fff;border:0;font-size:26px;line-height:1;cursor:pointer;z-index:5}
+  .speed{position:absolute;right:16px;bottom:140px;display:none;flex-direction:column;
+         align-items:flex-end;gap:8px;z-index:5}
+  .speed.on{display:flex}
+  .speed button{background:var(--tint);color:var(--navy);border:0;border-radius:999px;
+                padding:11px 18px;font-size:14px;cursor:pointer}
+
+  .tabs{position:absolute;left:0;right:0;bottom:0;height:66px;background:var(--paper);
+        border-top:1px solid var(--line);display:flex}
+  .tab{flex:1;border:0;background:none;display:flex;flex-direction:column;align-items:center;
+       justify-content:center;gap:3px;font-size:11px;color:var(--faint);cursor:pointer;padding:0}
+  .tab[aria-pressed="true"]{color:var(--primary)}
+  .tab .g{width:24px;height:24px;display:grid;place-items:center;border-radius:8px}
+  .tab[aria-pressed="true"] .g{background:var(--tint)}
+  .tab svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;
+           stroke-linecap:round;stroke-linejoin:round}
+
+  .btn{width:100%;background:var(--navy);color:#fff;border:0;border-radius:var(--r);
+       padding:14px;font-size:15px;cursor:pointer}
+  .btn.ghost{background:none;color:var(--navy);border:1px solid var(--line-2)}
+
+  .asset{background:var(--paper);border:1px solid var(--line);border-radius:var(--rlg);
+         padding:14px;margin-bottom:10px;display:flex;align-items:center;gap:12px}
+  .sigimg{font-family:"Brush Script MT","Segoe Script",cursive;font-size:26px;color:var(--ink);flex:1}
+  .stampimg{width:54px;height:54px;border-radius:50%;border:2px solid var(--ink);
+            display:grid;place-items:center;font-size:9px;color:var(--ink);text-align:center;
+            line-height:1.1;flex:none;transform:rotate(-8deg)}
+  .lock{font-size:12px;color:var(--muted)}
+  .lock.ok{color:var(--signed)}
+
+  .rowitem{background:var(--paper);border:1px solid var(--line);border-radius:var(--rlg);
+           padding:14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;font-size:15px}
+  .rowitem span{color:var(--faint)}
+
+  /* document detail */
+  .docbar{display:flex;align-items:center;gap:10px;padding:12px 0 8px}
+  .docbar b{font-size:16px;font-weight:500;flex:1;text-align:center}
+  .back{border:0;background:none;font-size:20px;color:var(--navy);cursor:pointer;padding:0 4px}
+  .page{background:#fff;border:1px solid var(--line);border-radius:4px;padding:18px 16px;
+        font-family:Georgia,serif;font-size:10.5px;line-height:1.7;color:#26313C;position:relative}
+  .page h4{text-align:center;font-size:12px;margin:0 0 14px;letter-spacing:.04em}
+  .page p{margin:0 0 9px}
+  .sigzone{position:relative;height:96px;margin-top:14px}
+  .stampmark{position:absolute;left:4px;bottom:16px;width:66px;height:66px;border-radius:50%;
+             border:2px solid var(--ink);color:var(--ink);font-size:7.5px;display:grid;place-items:center;
+             text-align:center;line-height:1.15;transform:rotate(-11deg);opacity:.85}
+  .sigmark{position:absolute;left:26px;bottom:44px;font-family:"Brush Script MT","Segoe Script",cursive;
+           font-size:30px;color:var(--ink)}
+  .datemark{position:absolute;left:14px;bottom:2px;font-size:10px;color:var(--ink)}
+  .actionbar{display:flex;gap:8px;margin:14px 0 10px}
+  .actionbar button{flex:1;background:var(--paper);border:1px solid var(--line-2);border-radius:var(--r);
+                    padding:11px 4px;font-size:12px;color:var(--navy);cursor:pointer;
+                    display:flex;flex-direction:column;align-items:center;gap:4px}
+  .actionbar svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round}
+  .who{display:flex;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);
+       border-radius:var(--rlg);padding:12px;margin-bottom:10px;font-size:13px}
+  .sheet{position:absolute;inset:0;background:rgba(23,36,76,.45);display:none;z-index:9;align-items:flex-end}
+  .sheet.on{display:flex}
+  .sheetinner{background:var(--paper);width:100%;border-radius:16px 16px 0 0;padding:16px;max-height:72%;overflow-y:auto}
+  .sheettitle{margin:0 0 10px;font-size:13px;color:var(--muted)}
+  .langrow{display:flex;justify-content:space-between;align-items:center;padding:12px 4px;
+           border-bottom:1px solid var(--line);font-size:15px;cursor:pointer}
+  .langrow:last-child{border-bottom:0}
+  .langrow small{color:var(--faint);font-size:12px}
+  .langrow[aria-selected="true"]{background:var(--navy);color:#fff;border-radius:var(--r);
+                                 padding-left:10px;padding-right:10px;border-bottom-color:transparent}
+  .langrow[aria-selected="true"] small{color:var(--blue)}
+  .avatar{width:30px;height:30px;border-radius:50%;background:var(--tint);color:var(--primary);
+          display:grid;place-items:center;font-size:12px;font-weight:600;flex:none}
+</style>
+
+<div class="phone">
+  <div class="statusbar"><span style="font-weight:500;color:var(--navy)">DocSignSeal</span>
+    <button id="langbtn" style="border:0;background:none;font-size:11px;color:var(--primary);cursor:pointer;padding:0">EN ▾</button>
+  </div>
+
+  <!-- DOCUMENTS -->
+  <div class="screen on" id="s-docs">
+    <h1 data-i18n="docs">Documents</h1>
+    <div class="segs">
+      <button class="seg" aria-pressed="true" data-i18n="f_you">Waiting on you</button>
+      <button class="seg" aria-pressed="false" data-i18n="f_others">Waiting on others</button>
+      <button class="seg" aria-pressed="false" data-i18n="f_done">Completed</button>
+      <button class="seg" aria-pressed="false" data-i18n="f_draft">Drafts</button>
+    </div>
+
+    <div class="card" onclick="openDoc()">
+      <div class="thumb"></div>
+      <div class="meta">
+        <b>Note de service n° 20</b>
+        <span>1 page · from Secrétariat</span>
+        <div class="pill p-wait" data-i18n="p_you">Your signature</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="thumb"><span class="seal"></span></div>
+      <div class="meta">
+        <b>Convention USDI-FC 2026</b>
+        <span>19 pages · 1 of 3 signed</span>
+        <div class="pill p-wait" data-i18n="p_you">Your signature</div>
+      </div>
+    </div>
+
+    <h2 data-i18n="earlier">Earlier</h2>
+
+    <div class="card">
+      <div class="thumb"><span class="seal"></span></div>
+      <div class="meta">
+        <b>Attestation de résidence</b>
+        <span>2 pages · sealed 28 Aug</span>
+        <div class="pill p-signed" data-i18n="p_done">Completed</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="thumb"></div>
+      <div class="meta">
+        <b>Contrat prestataire web</b>
+        <span>4 pages · sent 26 Aug</span>
+        <div class="pill p-decl">Declined by M. Traoré</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCUMENT DETAIL -->
+  <div class="screen" id="s-doc">
+    <div class="docbar">
+      <button class="back" onclick="show('docs')">←</button>
+      <b>Note de service n° 20</b>
+      <span style="width:22px"></span>
+    </div>
+
+    <div class="who">
+      <div class="avatar">JK</div>
+      <div><span data-i18n="turn">Your turn to sign</span><br><span style="color:var(--muted)" data-i18n="then">Then goes to Le Chargé d'Affaires</span></div>
+    </div>
+
+    <div class="page">
+      <h4>NOTE DE SERVICE</h4>
+      <p>Il est porté à la connaissance du personnel de l'Ambassade que le jeudi 04 juin 2026, jour de la célébration de la Fête du Saint Sacrement, est férié en Autriche.</p>
+      <p>Par conséquent, l'Ambassade sera fermée.</p>
+      <p>Le travail reprendra le vendredi 05 juin 2026, à 09H30.</p>
+      <div class="sigzone">
+        <div class="stampmark">UNION SPORTIVE<br>DE LA<br>DIASPORA FC</div>
+        <div class="sigmark">Junior</div>
+        <div class="datemark">2 Sept 2026</div>
+      </div>
+    </div>
+
+    <div class="actionbar">
+      <button><svg viewBox="0 0 24 24"><path d="M3 18c3-1 5-9 8-9s2 6 4 6 3-2 5-2"/></svg><span data-i18n="a_sign">Sign</span></button>
+      <button><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M4 20h16"/></svg><span data-i18n="a_stamp">Stamp</span></button>
+      <button><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 11h18"/></svg><span data-i18n="a_date">Date</span></button>
+      <button><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg><span data-i18n="a_text">Text</span></button>
+    </div>
+
+    <button class="btn" data-i18n="cta_sign">Sign and pass to next signer</button>
+    <div style="height:8px"></div>
+    <button class="btn ghost" data-i18n="cta_decline">Decline with a reason</button>
+  </div>
+
+  <!-- SIGNATURES -->
+  <div class="screen" id="s-sign">
+    <h1 data-i18n="sigs">Signatures</h1>
+    <div class="asset">
+      <div class="sigimg">Junior K.</div>
+      <span class="lock ok">Default</span>
+    </div>
+    <div class="asset">
+      <div class="sigimg" style="font-size:20px">JK</div>
+      <span class="lock">Initials</span>
+    </div>
+    <button class="btn ghost" data-i18n="add_sig">Add a signature</button>
+    <p style="font-size:13px;color:var(--muted);margin-top:14px">
+      Draw, type, or scan an existing signature. Ink colour is chosen at signing time, blue by default.
+    </p>
+  </div>
+
+  <!-- STAMPS -->
+  <div class="screen" id="s-stamp">
+    <h1 data-i18n="stamps">Stamps</h1>
+    <p style="font-size:13px;color:var(--muted);margin:0 0 14px">
+      Stamps belong to the organisation. Every application is recorded in the document's audit trail.
+    </p>
+    <div class="asset">
+      <div class="stampimg">USDI<br>FC</div>
+      <div class="meta"><b>USDI-FC round seal</b><span class="lock ok" data-i18n="may_apply">You may apply</span></div>
+    </div>
+    <div class="asset">
+      <div class="stampimg" style="border-style:double">AMB<br>CI</div>
+      <div class="meta"><b>Mission seal</b><span class="lock" data-i18n="amb_only">Ambassador only</span></div>
+    </div>
+    <div class="asset">
+      <div class="stampimg" style="border-radius:6px;transform:rotate(-4deg);font-size:8px">COPIE<br>CERTIFIÉE</div>
+      <div class="meta"><b>Certified true copy</b><span class="lock ok">You may apply</span></div>
+    </div>
+    <button class="btn ghost" data-i18n="req_stamp">Request access to a stamp</button>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="screen" id="s-set">
+    <h1 data-i18n="settings">Settings</h1>
+    <div class="rowitem">Organisation<span>USDI-FC ›</span></div>
+    <div class="rowitem">Members and permissions<span>›</span></div>
+    <div class="rowitem">Language<span>Français ›</span></div>
+    <div class="rowitem">Default ink<span>Blue ›</span></div>
+    <div class="rowitem">Data retention<span>24 months ›</span></div>
+    <div class="rowitem">Storage region<span>EU ›</span></div>
+    <div class="rowitem">Privacy policy<span>›</span></div>
+  </div>
+
+  <div class="speed" id="speed">
+    <button>From files</button>
+    <button>From gallery</button>
+    <button>Scan</button>
+  </div>
+  <button class="fab" id="fab" aria-label="Add document">+</button>
+
+  <div class="sheet" id="langsheet">
+    <div class="sheetinner">
+      <p class="sheettitle" data-i18n="lang_title">Language</p>
+      <input id="langsearch" type="text" placeholder="Search language..."
+             style="width:100%;padding:11px 12px;font-size:15px;border:1px solid var(--line-2);
+                    border-radius:var(--r);margin-bottom:10px;color:var(--navy)">
+      <div id="langlist"></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab" data-t="docs" aria-pressed="true">
+      <span class="g"><svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v5h4"/></svg></span><span data-i18n="t_docs">Documents</span></button>
+    <button class="tab" data-t="sign" aria-pressed="false">
+      <span class="g"><svg viewBox="0 0 24 24"><path d="M3 18c3-1 5-9 8-9s2 6 4 6 3-2 5-2"/></svg></span><span data-i18n="t_sigs">Signatures</span></button>
+    <button class="tab" data-t="stamp" aria-pressed="false">
+      <span class="g"><svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M4 20h16"/></svg></span><span data-i18n="t_stamps">Stamps</span></button>
+    <button class="tab" data-t="set" aria-pressed="false">
+      <span class="g"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg></span><span data-i18n="t_set">Settings</span></button>
+  </div>
+</div>
+
+<script>
+  const screens = ['docs','doc','sign','stamp','set'];
+  function show(name){
+    screens.forEach(s => document.getElementById('s-'+s).classList.toggle('on', s===name));
+    document.querySelectorAll('.tab').forEach(t =>
+      t.setAttribute('aria-pressed', t.dataset.t === name));
+    const isDocs = name === 'docs';
+    document.getElementById('fab').style.display = isDocs ? 'block' : 'none';
+    document.getElementById('speed').classList.remove('on');
+    document.querySelector('.screen.on').scrollTop = 0;
+  }
+  function openDoc(){ show('doc'); }
+  document.querySelectorAll('.tab').forEach(t => t.onclick = () => show(t.dataset.t));
+  document.querySelectorAll('.seg').forEach(s => s.onclick = () => {
+    document.querySelectorAll('.seg').forEach(x => x.setAttribute('aria-pressed', x===s));
+  });
+  document.getElementById('fab').onclick = () =>
+    document.getElementById('speed').classList.toggle('on');
+</script>
+
+<script>
+const LOCALES = [
+  ["en","🇬🇧","English"],       ["fr","🇫🇷","Français"],  ["de","🇩🇪","Deutsch"],
+  ["es","🇪🇸","Español"],       ["zh","🇨🇳","中文"],       ["bn","🇧🇩","বাংলা"],
+  ["pt","🇵🇹","Português"],     ["ru","🇷🇺","Русский"],   ["hi","🇮🇳","हिन्दी"],
+  ["id","🇮🇩","Bahasa Indonesia"],["ja","🇯🇵","日本語"],   ["sw","🇰🇪","Kiswahili"],
+  ["tr","🇹🇷","Türkçe"],        ["nl","🇳🇱","Nederlands"],["it","🇮🇹","Italiano"],
+  ["hu","🇭🇺","Magyar"],        ["hr","🇭🇷","Hrvatski"],  ["sv","🇸🇪","Svenska"],
+  ["no","🇳🇴","Norsk"],         ["da","🇩🇰","Dansk"]
+];
+const RTL = [];
+
+const DICT = {
+  en:{docs:"Documents",f_you:"Waiting on you",f_others:"Waiting on others",f_done:"Completed",
+      f_draft:"Drafts",earlier:"Earlier",p_you:"Your signature",p_done:"Completed",
+      turn:"Your turn to sign",then:"Then goes to Le Chargé d'Affaires",
+      a_sign:"Sign",a_stamp:"Stamp",a_date:"Date",a_text:"Text",
+      cta_sign:"Sign and pass to next signer",cta_decline:"Decline with a reason",
+      sigs:"Signatures",add_sig:"Add a signature",stamps:"Stamps",
+      req_stamp:"Request access to a stamp",settings:"Settings",
+      may_apply:"You may apply",amb_only:"Ambassador only",
+      t_docs:"Documents",t_sigs:"Signatures",t_stamps:"Stamps",t_set:"Settings",
+      lang_title:"Language"},
+  fr:{docs:"Documents",f_you:"En attente de vous",f_others:"En attente des autres",f_done:"Terminés",
+      f_draft:"Brouillons",earlier:"Plus ancien",p_you:"Votre signature",p_done:"Terminé",
+      turn:"À vous de signer",then:"Ensuite au Chargé d'Affaires",
+      a_sign:"Signer",a_stamp:"Cachet",a_date:"Date",a_text:"Texte",
+      cta_sign:"Signer et transmettre",cta_decline:"Refuser en indiquant un motif",
+      sigs:"Signatures",add_sig:"Ajouter une signature",stamps:"Cachets",
+      req_stamp:"Demander l'accès à un cachet",settings:"Paramètres",
+      may_apply:"Vous pouvez l'apposer",amb_only:"Ambassadeur uniquement",
+      t_docs:"Documents",t_sigs:"Signatures",t_stamps:"Cachets",t_set:"Paramètres",
+      lang_title:"Langue"},
+  de:{docs:"Dokumente",f_you:"Wartet auf Sie",f_others:"Wartet auf andere",f_done:"Abgeschlossen",
+      f_draft:"Entwürfe",earlier:"Früher",p_you:"Ihre Unterschrift",p_done:"Abgeschlossen",
+      turn:"Sie sind an der Reihe",then:"Danach an den Geschäftsträger",
+      a_sign:"Unterschreiben",a_stamp:"Stempel",a_date:"Datum",a_text:"Text",
+      cta_sign:"Unterschreiben und weiterleiten",cta_decline:"Mit Begründung ablehnen",
+      sigs:"Unterschriften",add_sig:"Unterschrift hinzufügen",stamps:"Stempel",
+      req_stamp:"Zugriff auf Stempel anfragen",settings:"Einstellungen",
+      may_apply:"Sie dürfen ihn anwenden",amb_only:"Nur Botschafter",
+      t_docs:"Dokumente",t_sigs:"Signaturen",t_stamps:"Stempel",t_set:"Einstellungen",
+      lang_title:"Sprache"}
+};
+
+let locale = "en";
+
+function applyLocale(code){
+  locale = code;
+  const dict = DICT[code] || DICT.en;
+  document.querySelectorAll("[data-i18n]").forEach(el => {
+    const k = el.dataset.i18n;
+    el.textContent = dict[k] !== undefined ? dict[k] : DICT.en[k];
+  });
+  const phone = document.querySelector(".phone");
+  phone.dir = RTL.includes(code) ? "rtl" : "ltr";
+  document.getElementById("langbtn").textContent = code.toUpperCase() + " \u25BE";
+  buildLangList();
+}
+
+function buildLangList(){
+  const q = (document.getElementById("langsearch") ? document.getElementById("langsearch").value : "").toLowerCase();
+  const rows = LOCALES.filter(([code,flag,native]) =>
+    !q || native.toLowerCase().includes(q) || code.includes(q));
+  document.getElementById("langlist").innerHTML = rows.length
+    ? rows.map(([code,flag,native]) =>
+        '<div class="langrow" data-code="' + code + '" aria-selected="' + (code===locale) + '">' +
+        '<span><span style="margin-right:10px">' + flag + '</span>' + native + '</span>' +
+        '<small>' + code.toUpperCase() + '</small></div>').join("")
+    : '<p style="font-size:14px;color:var(--faint);padding:12px 4px;margin:0">No language matches that.</p>';
+  document.querySelectorAll(".langrow").forEach(r => r.onclick = () => {
+    applyLocale(r.dataset.code);
+    document.getElementById("langsheet").classList.remove("on");
+  });
+}
+
+document.getElementById("langsearch").oninput = buildLangList;
+
+document.getElementById("langbtn").onclick = () =>
+  document.getElementById("langsheet").classList.toggle("on");
+document.getElementById("langsheet").onclick = e => {
+  if(e.target.id === "langsheet") e.currentTarget.classList.remove("on");
+};
+
+applyLocale("en");
+</script>

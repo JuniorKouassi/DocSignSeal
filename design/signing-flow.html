@@ -1,0 +1,449 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --ink:#17244C;
+    --ink-soft:#5A6784;
+    --surface:#F2F6FC;
+    --paper:#FFFFFF;
+    --line:#DCE7F7;
+    --line-strong:#B9CCE8;
+    --primary:#3D5A9E;
+    --tint:#DCE7F7;
+    --seal:#3D5A9E;
+    --done:#1F5138;
+    --done-bg:#E1F0E8;
+    --r1:#3D5A9E;
+    --r2:#1D7A6B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--ink);
+       font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:820px;margin:0 auto;padding:14px}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+  header h1{font-size:19px;margin:0;letter-spacing:-.01em}
+  header h1 span{color:var(--ink-soft);font-weight:400}
+  .reset{background:none;border:0;color:var(--ink-soft);font-size:13px;text-decoration:underline;cursor:pointer;padding:4px}
+
+  .steps{display:flex;gap:6px;margin-bottom:12px;font-size:12px;color:var(--ink-soft);flex-wrap:wrap}
+  .steps b{font-weight:600;color:var(--ink)}
+  .steps i{font-style:normal;opacity:.4}
+
+  .panel{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:12px;margin-bottom:12px}
+  .panel h2{font-size:13px;font-weight:600;margin:0 0 8px;color:var(--ink-soft)}
+  .row{display:flex;flex-wrap:wrap;gap:6px}
+
+  .chip{border:1px solid var(--line);background:var(--paper);color:var(--ink);
+        border-radius:999px;padding:7px 12px;font-size:13px;cursor:pointer}
+  .chip[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip.who[aria-pressed="true"]{background:var(--who);border-color:var(--who)}
+  .chip .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px}
+
+  .hint{font-size:13px;color:var(--ink-soft);margin:8px 0 0}
+
+  .stage{position:relative;background:var(--paper);border:1px solid var(--line);
+         border-radius:4px;box-shadow:0 1px 0 rgba(0,0,0,.06);overflow:hidden;
+         aspect-ratio:1/1.414;touch-action:none}
+  .doc{position:absolute;inset:0;padding:7% 8%;font-family:Georgia,"Times New Roman",serif;
+       font-size:clamp(9px,2.1vw,13px);line-height:1.75;color:#26313C;pointer-events:none;overflow:hidden}
+  .doc h3{font-size:1.15em;margin:0 0 1.4em;text-align:center;font-weight:600;letter-spacing:.02em}
+  .doc p{margin:0 0 1em}
+  .doc .ref{color:#7A8792;font-size:.85em;margin-bottom:2em}
+  .doc .sigline{margin-top:2.4em;color:#7A8792;font-size:.85em}
+
+  .field{position:absolute;border:1.5px dashed var(--c);background:color-mix(in srgb,var(--c) 10%,transparent);
+         border-radius:3px;display:flex;align-items:center;justify-content:center;
+         font-size:11px;color:var(--c);cursor:grab;user-select:none;overflow:hidden;padding:2px}
+  .field.filled{border-style:solid;background:transparent}
+  .field.armed{cursor:pointer;box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 25%,transparent)}
+  .field.dim{opacity:.28;pointer-events:none}
+  .field img{max-width:100%;max-height:100%;object-fit:contain}
+  .field .val{font-family:Georgia,serif;color:var(--ink);font-size:clamp(9px,2vw,13px);white-space:nowrap}
+  .field .del{position:absolute;top:-9px;right:-9px;width:18px;height:18px;border-radius:50%;
+              background:var(--ink);color:#fff;font-size:11px;line-height:18px;text-align:center;cursor:pointer}
+
+  .bar{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .btn{background:var(--ink);color:#fff;border:0;border-radius:5px;padding:11px 16px;font-size:14px;cursor:pointer}
+  .btn[disabled]{opacity:.35;cursor:not-allowed}
+  .btn.ghost{background:none;color:var(--ink);border:1px solid var(--line)}
+  .btn.seal{background:var(--seal)}
+  .status{font-size:13px;color:var(--ink-soft)}
+
+  .modal{position:fixed;inset:0;background:rgba(27,39,51,.55);display:none;align-items:flex-end;justify-content:center;z-index:9}
+  .modal.on{display:flex}
+  .sheet{background:var(--paper);width:100%;max-width:520px;border-radius:12px 12px 0 0;padding:16px}
+  .sheet h3{margin:0 0 10px;font-size:15px}
+  canvas{width:100%;height:150px;border:1px solid var(--line);border-radius:4px;background:#FCFCFB;touch-action:none;display:block}
+  .typed{width:100%;padding:12px;font-size:26px;border:1px solid var(--line);border-radius:4px;
+         font-family:"Brush Script MT","Segoe Script",cursive;background:#FCFCFB}
+  input[type=text].plain{width:100%;padding:11px;font-size:15px;border:1px solid var(--line);border-radius:4px}
+
+  .trail{font-size:13px;line-height:1.7}
+  .trail li{margin-bottom:6px}
+  .trail time{color:var(--ink-soft)}
+  .hash{font-family:ui-monospace,Menlo,monospace;font-size:11px;word-break:break-all;color:var(--ink-soft)}
+  .done-note{border-left:3px solid var(--done);border-radius:0;padding:10px 12px;
+             background:var(--done-bg);color:var(--done);font-size:14px;margin:0}
+  .inkrow{display:flex;gap:10px;align-items:center;margin:0 0 10px}
+  .ink{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+  .ink[aria-pressed="true"]{border-color:var(--ink);box-shadow:var(--focus)}
+  .brand{display:flex;align-items:center;gap:8px}
+  .mark{width:22px;height:22px;border-radius:50%;background:var(--primary);position:relative}
+  .mark::after{content:"";position:absolute;inset:5px 5px 5px 11px;background:var(--paper);border-radius:0 11px 11px 0}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1 class="brand"><span class="mark"></span>DocSignSeal <span>signing flow</span></h1>
+    <button class="reset" id="reset">Start over</button>
+  </header>
+
+  <div class="steps" id="steps"></div>
+
+  <div class="panel" id="tools">
+    <h2>Place fields for each signer</h2>
+    <div class="row" id="whoRow"></div>
+    <div class="row" id="toolRow" style="margin-top:8px"></div>
+    <p class="hint" id="hint">Tap the document to drop a field. Drag to move it, tap the dot to remove it.</p>
+  </div>
+
+  <div class="panel" id="signPanel" hidden>
+    <h2 id="signWho"></h2>
+    <p class="hint" id="signHint"></p>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="doc">
+      <p class="ref">Ref. 2026/CG/0431</p>
+      <h3>Attestation and undertaking</h3>
+      <p>The undersigned parties confirm that the particulars recorded in the attached schedule are accurate to the best of their knowledge, and that each has authority to enter into this undertaking on behalf of the entity named beside their signature.</p>
+      <p>This attestation takes effect on the date of the final signature below. It remains valid for twelve months unless withdrawn in writing by either party, with thirty days of notice.</p>
+      <p>Where a translation of this text exists, the French version governs in the event of a discrepancy.</p>
+      <p class="sigline">Signed by the applicant</p>
+      <p class="sigline">Countersigned by the issuing office</p>
+    </div>
+  </div>
+
+  <div class="bar" id="bar"></div>
+
+  <div class="panel" id="audit" hidden>
+    <h2>Audit trail</h2>
+    <ul class="trail" id="trail"></ul>
+    <p class="hash" id="hashline"></p>
+  </div>
+</div>
+
+<div class="modal" id="modal">
+  <div class="sheet">
+    <h3 id="mTitle">Add your signature</h3>
+    <div id="mSig">
+      <div class="inkrow" id="inkRow">
+        <button class="ink" data-ink="#1B3FA8" aria-pressed="true"  aria-label="Blue ink"  style="background:#1B3FA8"></button>
+        <button class="ink" data-ink="#101010" aria-pressed="false" aria-label="Black ink" style="background:#101010"></button>
+        <button class="ink" data-ink="#0F5C34" aria-pressed="false" aria-label="Green ink" style="background:#0F5C34"></button>
+        <button class="ink" data-ink="#A81B1B" aria-pressed="false" aria-label="Red ink"   style="background:#A81B1B"></button>
+      </div>
+      <div class="row" style="margin-bottom:8px">
+        <button class="chip" data-tab="draw" aria-pressed="true">Draw</button>
+        <button class="chip" data-tab="type" aria-pressed="false">Type</button>
+      </div>
+      <div id="drawPane"><canvas id="pad"></canvas></div>
+      <div id="typePane" hidden><input class="typed" id="typedName" placeholder="Your name"></div>
+    </div>
+    <div id="mText" hidden><input type="text" class="plain" id="textVal" placeholder="Type here"></div>
+    <div class="bar">
+      <button class="btn" id="mApply">Apply</button>
+      <button class="btn ghost" id="mClear">Clear</button>
+      <button class="btn ghost" id="mCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TYPES = {
+  signature:{label:'Signature', w:30, h:7.5},
+  initials :{label:'Initials',  w:12, h:5},
+  fullname :{label:'Full name', w:26, h:4.5},
+  date     :{label:'Date',      w:20, h:4.5},
+  text     :{label:'Text',      w:26, h:4.5},
+  check    :{label:'Checkbox',  w:6,  h:4}
+};
+
+const S = {
+  mode:'prepare',
+  tool:'signature',
+  who:0,
+  turn:0,
+  fields:[],
+  audit:[],
+  recipients:[
+    {name:'Applicant',      color:'#2D5BA6'},
+    {name:'Issuing office', color:'#B8791F'}
+  ]
+};
+let seq = 0;
+
+const $ = id => document.getElementById(id);
+const stage = $('stage');
+
+function now(){ return new Date().toLocaleString(undefined,{hour12:false}); }
+function log(text){ S.audit.push({t:now(), text}); }
+
+/* ---------- rendering ---------- */
+
+function renderSteps(){
+  const names = ['Prepare','Sent','Signing','Complete'];
+  const at = {prepare:0, sign:2, done:3}[S.mode];
+  $('steps').innerHTML = names.map((n,i)=>
+    `${i? '<i>›</i>':''}${i===at?`<b>${n}</b>`:n}`).join(' ');
+}
+
+function renderControls(){
+  $('whoRow').innerHTML = S.recipients.map((r,i)=>
+    `<button class="chip who" data-who="${i}" aria-pressed="${S.who===i}" style="--who:${r.color}">
+       <span class="dot" style="background:${r.color}"></span>${r.name}</button>`).join('');
+  $('toolRow').innerHTML = Object.entries(TYPES).map(([k,v])=>
+    `<button class="chip" data-tool="${k}" aria-pressed="${S.tool===k}">${v.label}</button>`).join('');
+}
+
+function renderFields(){
+  [...stage.querySelectorAll('.field')].forEach(n=>n.remove());
+  S.fields.forEach(f=>{
+    const c = S.recipients[f.who].color;
+    const el = document.createElement('div');
+    el.className = 'field';
+    el.dataset.id = f.id;
+    el.style.cssText = `--c:${c};left:${f.x}%;top:${f.y}%;width:${f.w}%;height:${f.h}%`;
+
+    if(f.value){
+      el.classList.add('filled');
+      el.innerHTML = f.type==='signature' || f.type==='initials'
+        ? `<img src="${f.value}" alt="">`
+        : `<span class="val">${f.value}</span>`;
+    } else {
+      el.textContent = TYPES[f.type].label;
+    }
+
+    if(S.mode==='prepare'){
+      const x = document.createElement('span');
+      x.className = 'del'; x.textContent = '×';
+      x.onclick = e => { e.stopPropagation(); S.fields = S.fields.filter(g=>g.id!==f.id); renderFields(); renderBar(); };
+      el.appendChild(x);
+      makeDraggable(el, f);
+    } else if(S.mode==='sign'){
+      if(f.who === S.turn){ if(!f.value) el.classList.add('armed'); el.onclick = () => fill(f); }
+      else el.classList.add('dim');
+    } else {
+      el.classList.add('dim');
+    }
+    stage.appendChild(el);
+  });
+}
+
+function renderBar(){
+  const bar = $('bar');
+  if(S.mode==='prepare'){
+    const missing = S.recipients.filter((_,i)=>!S.fields.some(f=>f.who===i)).map(r=>r.name);
+    bar.innerHTML = `<button class="btn" id="send" ${missing.length?'disabled':''}>Send for signature</button>
+      <span class="status">${missing.length? 'Still needs a field for '+missing.join(' and ')
+        : S.fields.length+' fields placed'}</span>`;
+    if(!missing.length) $('send').onclick = send;
+  } else if(S.mode==='sign'){
+    const mine = S.fields.filter(f=>f.who===S.turn);
+    const left = mine.filter(f=>!f.value).length;
+    const last = S.turn === S.recipients.length-1;
+    bar.innerHTML = `<button class="btn seal" id="finish" ${left?'disabled':''}>
+        ${last?'Sign and complete':'Sign and pass to '+S.recipients[S.turn+1].name}</button>
+      <span class="status">${left? left+' field'+(left>1?'s':'')+' left' : 'All fields complete'}</span>`;
+    if(!left) $('finish').onclick = finish;
+  } else {
+    bar.innerHTML = `<p class="done-note">Signed by all parties. The finished PDF would be flattened and sealed at this point, then emailed to both signers.</p>`;
+  }
+}
+
+function render(){
+  renderSteps();
+  $('tools').hidden = S.mode!=='prepare';
+  $('signPanel').hidden = S.mode!=='sign';
+  if(S.mode==='sign'){
+    $('signWho').textContent = 'Signing as '+S.recipients[S.turn].name;
+    $('signHint').textContent = 'Only the fields assigned to you are active. The others are locked.';
+  }
+  renderControls(); renderFields(); renderBar(); renderTrail();
+}
+
+/* ---------- prepare ---------- */
+
+stage.addEventListener('click', e => {
+  if(S.mode!=='prepare' || e.target.closest('.field')) return;
+  const r = stage.getBoundingClientRect();
+  const t = TYPES[S.tool];
+  S.fields.push({
+    id:++seq, type:S.tool, who:S.who,
+    x: clamp((e.clientX-r.left)/r.width*100  - t.w/2, 0, 100-t.w),
+    y: clamp((e.clientY-r.top )/r.height*100 - t.h/2, 0, 100-t.h),
+    w:t.w, h:t.h, value:null
+  });
+  renderFields(); renderBar();
+});
+
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+function makeDraggable(el, f){
+  el.addEventListener('pointerdown', e => {
+    if(e.target.classList.contains('del')) return;
+    el.setPointerCapture(e.pointerId);
+    const r = stage.getBoundingClientRect();
+    const ox = e.clientX - r.left - f.x/100*r.width;
+    const oy = e.clientY - r.top  - f.y/100*r.height;
+    const move = ev => {
+      f.x = clamp((ev.clientX-r.left-ox)/r.width*100,  0, 100-f.w);
+      f.y = clamp((ev.clientY-r.top -oy)/r.height*100, 0, 100-f.h);
+      el.style.left = f.x+'%'; el.style.top = f.y+'%';
+    };
+    const up = () => { el.removeEventListener('pointermove',move); el.removeEventListener('pointerup',up); };
+    el.addEventListener('pointermove',move); el.addEventListener('pointerup',up);
+  });
+}
+
+document.addEventListener('click', e => {
+  const w = e.target.closest('[data-who]');
+  if(w){ S.who = +w.dataset.who; renderControls(); }
+  const t = e.target.closest('[data-tool]');
+  if(t){ S.tool = t.dataset.tool; renderControls(); }
+});
+
+/* ---------- send and sign ---------- */
+
+function send(){
+  S.mode = 'sign'; S.turn = 0;
+  log('Document sent. One time signing link issued to '+S.recipients.map(r=>r.name).join(' and ')+'.');
+  log(S.recipients[0].name+' opened the link. IP recorded, link marked as viewed.');
+  render();
+}
+
+let pending = null;
+
+function fill(f){
+  if(f.type==='date'){
+    f.value = new Date().toLocaleDateString();
+    renderFields(); renderBar(); return;
+  }
+  if(f.type==='check'){
+    f.value = f.value ? null : '✓';
+    renderFields(); renderBar(); return;
+  }
+  pending = f;
+  const isSig = f.type==='signature' || f.type==='initials';
+  $('mTitle').textContent = isSig ? 'Add your '+TYPES[f.type].label.toLowerCase() : 'Enter '+TYPES[f.type].label.toLowerCase();
+  $('mSig').hidden = !isSig;
+  $('mText').hidden = isSig;
+  $('textVal').value = '';
+  $('typedName').value = '';
+  clearPad();
+  $('modal').classList.add('on');
+}
+
+$('mCancel').onclick = () => { $('modal').classList.remove('on'); pending = null; };
+$('mClear').onclick = () => { clearPad(); $('typedName').value=''; $('textVal').value=''; };
+
+$('mApply').onclick = () => {
+  if(!pending) return;
+  const isSig = pending.type==='signature' || pending.type==='initials';
+  if(isSig){
+    const typed = $('typedName').value.trim();
+    if(typed && !$('typePane').hidden){
+      const c = document.createElement('canvas');
+      c.width = 600; c.height = 200;
+      const x = c.getContext('2d');
+      x.fillStyle = ink;
+      x.font = '80px "Brush Script MT","Segoe Script",cursive';
+      x.textBaseline = 'middle';
+      x.fillText(typed, 20, 105);
+      pending.value = c.toDataURL();
+    } else if(hasInk){
+      pending.value = pad.toDataURL();
+    } else return;
+  } else {
+    const v = $('textVal').value.trim();
+    if(!v) return;
+    pending.value = v;
+  }
+  $('modal').classList.remove('on');
+  pending = null;
+  renderFields(); renderBar();
+};
+
+document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('[data-tab]').forEach(x => x.setAttribute('aria-pressed', x===b));
+  $('drawPane').hidden = b.dataset.tab!=='draw';
+  $('typePane').hidden = b.dataset.tab!=='type';
+});
+
+/* ---------- signature pad ---------- */
+
+const pad = $('pad');
+const px = pad.getContext('2d');
+let drawing = false, hasInk = false, ink = '#1B3FA8';
+
+document.querySelectorAll('[data-ink]').forEach(b => b.onclick = () => {
+  document.querySelectorAll('[data-ink]').forEach(x => x.setAttribute('aria-pressed', x===b));
+  ink = b.dataset.ink;
+  px.strokeStyle = ink;
+});
+
+function sizePad(){
+  const r = pad.getBoundingClientRect();
+  const d = window.devicePixelRatio || 1;
+  pad.width = r.width*d; pad.height = r.height*d;
+  px.scale(d,d);
+  px.lineWidth = 2.2; px.lineCap = 'round'; px.lineJoin = 'round'; px.strokeStyle = ink;
+}
+function clearPad(){ sizePad(); px.clearRect(0,0,pad.width,pad.height); hasInk = false; }
+window.addEventListener('resize', () => { if($('modal').classList.contains('on')) clearPad(); });
+
+pad.addEventListener('pointerdown', e => {
+  drawing = true; hasInk = true;
+  pad.setPointerCapture(e.pointerId);
+  const r = pad.getBoundingClientRect();
+  px.beginPath(); px.moveTo(e.clientX-r.left, e.clientY-r.top);
+});
+pad.addEventListener('pointermove', e => {
+  if(!drawing) return;
+  const r = pad.getBoundingClientRect();
+  px.lineTo(e.clientX-r.left, e.clientY-r.top); px.stroke();
+});
+pad.addEventListener('pointerup', () => drawing = false);
+
+/* ---------- finish ---------- */
+
+async function finish(){
+  const r = S.recipients[S.turn];
+  log(r.name+' completed '+S.fields.filter(f=>f.who===S.turn).length+' fields and confirmed intent to sign.');
+  if(S.turn < S.recipients.length-1){
+    S.turn++;
+    log('Signing link released to '+S.recipients[S.turn].name+'.');
+    render();
+  } else {
+    S.mode = 'done';
+    log('All parties signed. Document flattened and locked.');
+    render();
+    const payload = JSON.stringify(S.fields.map(f=>({t:f.type,w:f.who,x:f.x,y:f.y,v:f.value})));
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payload));
+    const hex = [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+    $('hashline').textContent = 'SHA-256 of the sealed document: '+hex;
+  }
+}
+
+function renderTrail(){
+  $('audit').hidden = !S.audit.length;
+  $('trail').innerHTML = S.audit.map(a=>`<li><time>${a.t}</time> · ${a.text}</li>`).join('');
+}
+
+$('reset').onclick = () => {
+  S.mode='prepare'; S.fields=[]; S.audit=[]; S.turn=0; S.who=0; S.tool='signature';
+  $('hashline').textContent=''; render();
+};
+
+render();
+</script>
