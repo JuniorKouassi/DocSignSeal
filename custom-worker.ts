@@ -19,6 +19,24 @@ export class RenderContainer extends Container {
   sleepAfter = "2m";
 }
 
+/* The official Gotenberg image (see wrangler.jsonc), configured to require
+   basic auth. Its username/password come from this Worker's own secrets
+   (`wrangler secret put GOTENBERG_USERNAME` / `GOTENBERG_PASSWORD`) set at
+   construction time -- never hardcoded here or in wrangler.jsonc. */
+export class GotenbergContainer extends Container {
+  defaultPort = 3000;
+  sleepAfter = "5m";
+
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.envVars = {
+      API_ENABLE_BASIC_AUTH: "true",
+      GOTENBERG_API_BASIC_AUTH_USERNAME: env.GOTENBERG_USERNAME,
+      GOTENBERG_API_BASIC_AUTH_PASSWORD: env.GOTENBERG_PASSWORD,
+    };
+  }
+}
+
 export default {
   fetch: handler.fetch,
 } satisfies ExportedHandler<CloudflareEnv>;

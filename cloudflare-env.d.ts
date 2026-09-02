@@ -1,7 +1,7 @@
 // Hand-written starting point. Once real Cloudflare resources exist, replace
 // this by running `npm run cf-typegen` (wrangler generates it from the
 // actual wrangler.jsonc + dashboard-configured secrets).
-import type { RenderContainer } from "./custom-worker";
+import type { RenderContainer, GotenbergContainer } from "./custom-worker";
 
 // This file has an import, making it a module -- interface CloudflareEnv
 // must be wrapped in `declare global` here to merge with @opennextjs/
@@ -10,6 +10,9 @@ import type { RenderContainer } from "./custom-worker";
 declare global {
   interface CloudflareEnv {
     RENDER_CONTAINER: DurableObjectNamespace<RenderContainer>;
+    GOTENBERG_CONTAINER: DurableObjectNamespace<GotenbergContainer>;
+    GOTENBERG_USERNAME: string;
+    GOTENBERG_PASSWORD: string;
 
     // Secrets/vars -- also read via process.env elsewhere in the app
     // (OpenNext populates process.env from these as of this wrangler.jsonc's

@@ -23,22 +23,36 @@
 
   "images": { "binding": "IMAGES" },
 
-  // The PDF-page-to-PNG render service (containers/render-service/) --
-  // @napi-rs/canvas is a native addon that cannot run inside a Worker's V8
-  // isolate, so it runs as a real container instead. See lib/render/client.ts.
+  // Two Cloudflare Containers:
+  // - RenderContainer (containers/render-service/): PDF-page-to-PNG, a
+  //   native addon (@napi-rs/canvas) that can't run in the Worker itself.
+  //   See lib/render/client.ts.
+  // - GotenbergContainer: the official Gotenberg image, pulled directly
+  //   from Docker Hub (no local Dockerfile needed) -- build step 8,
+  //   Word-to-PDF only. See lib/gotenberg/client.ts. Basic auth
+  //   credentials are set as Worker secrets (GOTENBERG_USERNAME /
+  //   GOTENBERG_PASSWORD via `wrangler secret put`), read in
+  //   custom-worker.ts's constructor, never committed here.
   "containers": [
     {
       "class_name": "RenderContainer",
       "image": "./containers/render-service/Dockerfile",
       "max_instances": 2
+    },
+    {
+      "class_name": "GotenbergContainer",
+      "image": "docker.io/gotenberg/gotenberg:8.15",
+      "max_instances": 1
     }
   ],
   "durable_objects": {
     "bindings": [
-      { "name": "RENDER_CONTAINER", "class_name": "RenderContainer" }
+      { "name": "RENDER_CONTAINER", "class_name": "RenderContainer" },
+      { "name": "GOTENBERG_CONTAINER", "class_name": "GotenbergContainer" }
     ]
   },
   "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["RenderContainer"] }
+    { "tag": "v1", "new_sqlite_classes": ["RenderContainer"] },
+    { "tag": "v2", "new_sqlite_classes": ["GotenbergContainer"] }
   ]
 }

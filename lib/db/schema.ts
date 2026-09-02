@@ -49,6 +49,8 @@ export const stampKind = pgEnum('stamp_kind', ['seal', 'mention', 'header', 'cus
 
 export const annotationType = pgEnum('annotation_type', ['stamp', 'signature', 'ink', 'date', 'text']);
 
+export const conversionStatus = pgEnum('conversion_status', ['queued', 'running', 'done', 'failed']);
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: citext('email').notNull(),
@@ -285,8 +287,27 @@ export const annotations = pgTable('annotations', {
   index('annotations_document_page_idx').on(t.documentId, t.page),
 ]);
 
+/* Build step 8. targetFormat stays free text rather than an enum: Gotenberg
+   itself only ever produces PDF (its API has no non-PDF output, by design),
+   so today this is always 'pdf', but the job-status shape shouldn't need a
+   migration if a different converter is added for another target later. */
+export const conversionJobs = pgTable('conversion_jobs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  sourceFileId: uuid('source_file_id').notNull().references(() => files.id),
+  targetFormat: text('target_format').notNull(),
+  status: conversionStatus('status').notNull().default('queued'),
+  resultFileId: uuid('result_file_id').references(() => files.id),
+  error: text('error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+}, (t) => [
+  index('conversion_jobs_org_created_idx').on(t.organizationId, t.createdAt),
+]);
+
 export const schema = {
   users, organizations, memberships, sessions, files, templates, templateFields,
   documents, documentSigners, documentFields, auditEvents,
-  stamps, stampPermissions, annotations,
+  stamps, stampPermissions, annotations, conversionJobs,
 };
