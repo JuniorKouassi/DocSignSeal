@@ -47,3 +47,12 @@ export async function readFileBytes(fileId: string, organizationId: string): Pro
   const ciphertext = await getObject(file.storageKey);
   return decryptFile(ciphertext, file.encryptedKey);
 }
+
+export async function getFileMeta(fileId: string, organizationId: string) {
+  const rows = await db.select().from(files)
+    .where(eq(files.id, fileId))
+    .limit(1);
+  const file = rows[0];
+  if (!file || file.organizationId !== organizationId) return null;
+  return file;
+}
