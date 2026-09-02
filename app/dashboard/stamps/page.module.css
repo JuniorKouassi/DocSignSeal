@@ -1,0 +1,143 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--dss-space-4);
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--dss-text);
+}
+
+.empty {
+  color: var(--dss-text-muted);
+  font-size: 14px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--dss-space-3);
+  max-width: 900px;
+  margin-bottom: var(--dss-space-5);
+}
+
+.card {
+  background: var(--dss-paper);
+  border: 1px solid var(--dss-line);
+  border-radius: var(--dss-radius-lg);
+  padding: var(--dss-space-3);
+}
+
+.thumb {
+  width: 100%;
+  height: 100px;
+  object-fit: contain;
+  background: var(--dss-wash);
+  border-radius: var(--dss-radius);
+  margin-bottom: var(--dss-space-2);
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dss-text);
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--dss-text-muted);
+  margin: 2px 0 var(--dss-space-2);
+}
+
+.permRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  padding: 3px 0;
+  color: var(--dss-text);
+}
+
+.archiveBtn {
+  margin-top: var(--dss-space-2);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dss-declined-fg);
+  background: none;
+  border: 1px solid var(--dss-line-strong);
+  border-radius: var(--dss-radius);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.uploadCard {
+  max-width: 380px;
+  background: var(--dss-paper);
+  border: 1px solid var(--dss-line);
+  border-radius: var(--dss-radius-lg);
+  padding: var(--dss-space-5);
+}
+
+.uploadTitle {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 var(--dss-space-3);
+  color: var(--dss-text);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--dss-space-3);
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dss-text-muted);
+}
+
+.field input[type="text"],
+.field input[type="color"],
+.field input[type="file"],
+.field select {
+  font-size: 14px;
+  padding: 8px 10px;
+  border-radius: var(--dss-radius);
+  border: 1px solid var(--dss-line-strong);
+  background: var(--dss-paper);
+  color: var(--dss-text);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--dss-declined-fg);
+  margin: 2px 0 0;
+}
+
+.submit {
+  width: 100%;
+  margin-top: var(--dss-space-2);
+  padding: 10px;
+  border: none;
+  border-radius: var(--dss-radius);
+  background: var(--dss-navy);
+  color: var(--dss-text-invert);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:hover {
+  background: var(--dss-navy-hover);
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

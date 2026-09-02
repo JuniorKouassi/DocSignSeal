@@ -14,6 +14,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <nav className={styles.nav}>
             <Link href="/dashboard/documents">Documents</Link>
             <Link href="/dashboard/templates">Templates</Link>
+            <Link href="/dashboard/stamps">Stamps</Link>
           </nav>
         </div>
         <div className={styles.orgInfo}>

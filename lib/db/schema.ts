@@ -9,6 +9,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -43,6 +44,10 @@ export const signerAuthMethod = pgEnum('signer_auth_method', [
 ]);
 
 export const signerStatus = pgEnum('signer_status', ['pending', 'viewed', 'signed', 'declined']);
+
+export const stampKind = pgEnum('stamp_kind', ['seal', 'mention', 'header', 'custom']);
+
+export const annotationType = pgEnum('annotation_type', ['stamp', 'signature', 'ink', 'date', 'text']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -226,7 +231,62 @@ export const auditEvents = pgTable('audit_events', {
   index('audit_events_document_idx').on(t.documentId, t.id),
 ]);
 
+/* Organization assets, not personal ones -- this table is the product.
+   Archived, never hard-deleted: old completed documents still reference
+   the stamp that was applied to them. */
+export const stamps = pgTable('stamps', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  fileId: uuid('file_id').notNull().references(() => files.id),
+  kind: stampKind('kind').notNull().default('seal'),
+  defaultInk: text('default_ink').notNull().default('#1B3FA8'),
+  requiresCountersignature: boolean('requires_countersignature').notNull().default(false),
+  archivedAt: timestamp('archived_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+/* Absence of a row means no access -- never inferred from org membership or
+   role. An org admin is not entitled to the ambassador's seal just by being
+   an admin (HANDOFF.md non-negotiable #6). */
+export const stampPermissions = pgTable('stamp_permissions', {
+  stampId: uuid('stamp_id').notNull().references(() => stamps.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  canApply: boolean('can_apply').notNull().default(true),
+  grantedBy: uuid('granted_by').notNull().references(() => users.id),
+  grantedAt: timestamp('granted_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.stampId, t.userId] }),
+]);
+
+/* Freeform, placed at signing/preparation time by whoever is looking at the
+   document -- unlike template_fields/document_fields, no placeholder exists
+   in advance. createdBySignerId is null when the org side (not an external
+   signer) places it, e.g. an admin applying an organizational stamp. */
+export const annotations = pgTable('annotations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+  createdBySignerId: uuid('created_by_signer_id').references(() => documentSigners.id),
+  type: annotationType('type').notNull(),
+  refId: uuid('ref_id'),
+  page: integer('page').notNull(),
+  x: numeric('x', { precision: 6, scale: 3, mode: 'number' }).notNull(),
+  y: numeric('y', { precision: 6, scale: 3, mode: 'number' }).notNull(),
+  w: numeric('w', { precision: 6, scale: 3, mode: 'number' }).notNull(),
+  h: numeric('h', { precision: 6, scale: 3, mode: 'number' }).notNull(),
+  rotation: numeric('rotation', { precision: 5, scale: 2, mode: 'number' }).notNull().default(0),
+  zIndex: integer('z_index').notNull().default(0),
+  inkColor: text('ink_color'),
+  valueText: text('value_text'),
+  strokeData: jsonb('stroke_data').$type<{ x: number; y: number }[][] | null>(),
+  appliedToAllPages: boolean('applied_to_all_pages').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('annotations_document_page_idx').on(t.documentId, t.page),
+]);
+
 export const schema = {
   users, organizations, memberships, sessions, files, templates, templateFields,
   documents, documentSigners, documentFields, auditEvents,
+  stamps, stampPermissions, annotations,
 };

@@ -43,6 +43,13 @@
       "when": 1788387237885,
       "tag": "0005_documents_seal",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788388100096,
+      "tag": "0006_stamps_and_annotations",
+      "breakpoints": true
     }
   ]
 }

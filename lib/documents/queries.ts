@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { documentFields, documents, documentSigners } from '../db/schema';
+import { annotations, documentFields, documents, documentSigners } from '../db/schema';
 
 export async function listDocuments(organizationId: string) {
   return db.select().from(documents)
@@ -33,4 +33,8 @@ export async function getDocumentFieldsWithSignerStatus(documentId: string) {
     .where(eq(documentFields.documentId, documentId))
     .orderBy(asc(documentFields.page), asc(documentFields.sortOrder));
   return rows.map((r) => ({ ...r.field, signerStatus: r.signerStatus }));
+}
+
+export async function listAnnotations(documentId: string) {
+  return db.select().from(annotations).where(eq(annotations.documentId, documentId));
 }

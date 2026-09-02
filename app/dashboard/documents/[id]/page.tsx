@@ -1,21 +1,27 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentContext } from '../../../../lib/auth/dal';
-import { getDocument, getDocumentSigners } from '../../../../lib/documents/queries';
+import { getDocument, getDocumentSigners, listAnnotations } from '../../../../lib/documents/queries';
 import { getDocumentAuditEvents } from '../../../../lib/audit/store';
 import { STATUS_GROUP, STATUS_LABELS } from '../../../../lib/documents/status';
+import { listApplicableStamps } from '../../../../lib/stamps/queries';
+import { getFileMeta } from '../../../../lib/files/store';
 import SendButton from './SendButton';
+import StampApplicator from './StampApplicator';
 import styles from './page.module.css';
 
 export default async function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { organization } = await getCurrentContext();
+  const { user, organization } = await getCurrentContext();
   const document = await getDocument(id, organization.id);
   if (!document) notFound();
 
-  const [signers, events] = await Promise.all([
+  const [signers, events, applicableStamps, placedAnnotations, sourceFile] = await Promise.all([
     getDocumentSigners(document.id),
     getDocumentAuditEvents(document.id),
+    listApplicableStamps(organization.id, user.id),
+    listAnnotations(document.id),
+    getFileMeta(document.sourceFileId, organization.id),
   ]);
 
   return (
@@ -37,6 +43,15 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
         <p className={styles.signerMeta} style={{ marginBottom: 'var(--dss-space-4)', wordBreak: 'break-all' }}>
           Seal: {document.seal}
         </p>
+      )}
+
+      {document.status !== 'completed' && applicableStamps.length > 0 && sourceFile?.pageCount && (
+        <StampApplicator
+          documentId={document.id}
+          pageCount={sourceFile.pageCount}
+          stamps={applicableStamps}
+          placed={placedAnnotations.filter((a) => a.type === 'stamp')}
+        />
       )}
 
       <div className={styles.section}>
