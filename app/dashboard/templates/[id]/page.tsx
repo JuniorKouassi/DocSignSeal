@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { getCurrentContext } from '../../../../lib/auth/dal';
-import { getTemplate } from '../../../../lib/templates/queries';
+import { getTemplate, getTemplateFields } from '../../../../lib/templates/queries';
+import FieldBuilder from './FieldBuilder';
 import styles from './page.module.css';
 
 export default async function TemplateDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -9,6 +10,8 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
   const template = await getTemplate(id, organization.id);
   if (!template) notFound();
 
+  const existingFields = await getTemplateFields(template.id);
+
   return (
     <div>
       <div className={styles.header}>
@@ -16,21 +19,23 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
         <span className={styles.meta}>{template.pageCount} page{template.pageCount === 1 ? '' : 's'}</span>
       </div>
 
-      <div className={styles.roles}>
-        {template.signerRoles.map((role) => (
-          <span key={role.index} className={styles.role}>{role.label}</span>
-        ))}
-      </div>
-
-      <div className={styles.pages}>
-        {Array.from({ length: template.pageCount }, (_, i) => i + 1).map((pageNumber) => (
-          <div className={styles.pageWrap} key={pageNumber}>
-            <p className={styles.pageLabel}>Page {pageNumber}</p>
-            {/* eslint-disable-next-line @next/next/no-img-element -- server-rendered PNG, not a static asset */}
-            <img src={`/api/templates/${template.id}/pages/${pageNumber}`} alt={`Page ${pageNumber} of ${template.name}`} />
-          </div>
-        ))}
-      </div>
+      <FieldBuilder
+        templateId={template.id}
+        pageCount={template.pageCount}
+        signerRoles={template.signerRoles}
+        initialFields={existingFields.map((f) => ({
+          id: f.id,
+          signerIndex: f.signerIndex,
+          page: f.page,
+          x: f.x,
+          y: f.y,
+          w: f.w,
+          h: f.h,
+          type: f.type,
+          required: f.required,
+          meta: f.meta,
+        }))}
+      />
     </div>
   );
 }
