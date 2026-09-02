@@ -26,11 +26,8 @@ function inRange(n: unknown, min: number, max: number) {
 }
 
 /* PUT /fields from spec/schema-and-api.md: replaces the whole field set for
-   a template atomically. The neon-http driver has no db.transaction(), so
-   this uses db.batch() -- Neon's HTTP driver sends the delete and every
-   insert as one atomic round trip, which is what "atomically" requires here:
-   a page reload mid-save must never see half the old set and half the new
-   one. */
+   a template atomically, inside a real transaction -- a page reload mid-save
+   must never see half the old set and half the new one. */
 export async function saveTemplateFields(templateId: string, fields: FieldInput[]): Promise<SaveFieldsResult> {
   const { organization } = await getCurrentContext();
 
@@ -48,28 +45,24 @@ export async function saveTemplateFields(templateId: string, fields: FieldInput[
     if (!isFieldType(f.type)) return { ok: false, error: `Unknown field type: ${f.type}` };
   }
 
-  const deleteExisting = db.delete(templateFields).where(eq(templateFields.templateId, templateId));
-  const inserts = fields.map((f, index) => db.insert(templateFields).values({
-    templateId,
-    signerIndex: f.signerIndex,
-    page: f.page,
-    x: f.x,
-    y: f.y,
-    w: f.w,
-    h: f.h,
-    // Validated by isFieldType() in the loop above.
-    type: f.type as FieldType,
-    required: f.required,
-    meta: f.meta ?? {},
-    sortOrder: index,
-  }));
-
-  if (inserts.length === 0) {
-    await deleteExisting;
-  } else {
-    const [first, ...rest] = inserts;
-    await db.batch([deleteExisting, first, ...rest]);
-  }
+  await db.transaction(async (tx) => {
+    await tx.delete(templateFields).where(eq(templateFields.templateId, templateId));
+    if (fields.length === 0) return;
+    await tx.insert(templateFields).values(fields.map((f, index) => ({
+      templateId,
+      signerIndex: f.signerIndex,
+      page: f.page,
+      x: f.x,
+      y: f.y,
+      w: f.w,
+      h: f.h,
+      // Validated by isFieldType() in the loop above.
+      type: f.type as FieldType,
+      required: f.required,
+      meta: f.meta ?? {},
+      sortOrder: index,
+    })));
+  });
 
   return { ok: true };
 }

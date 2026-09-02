@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentContext } from '../../../../lib/auth/dal';
 import { getTemplate, getTemplateFields } from '../../../../lib/templates/queries';
@@ -16,7 +17,10 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
     <div>
       <div className={styles.header}>
         <h1 className={styles.title}>{template.name}</h1>
-        <span className={styles.meta}>{template.pageCount} page{template.pageCount === 1 ? '' : 's'}</span>
+        <div className={styles.headerRight}>
+          <span className={styles.meta}>{template.pageCount} page{template.pageCount === 1 ? '' : 's'}</span>
+          <Link href={`/dashboard/templates/${template.id}/send`} className={styles.sendLink}>Send for signature</Link>
+        </div>
       </div>
 
       <FieldBuilder

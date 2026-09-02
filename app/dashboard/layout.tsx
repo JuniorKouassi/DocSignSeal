@@ -12,6 +12,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className={styles.left}>
           <span className={styles.brand}>DocSignSeal</span>
           <nav className={styles.nav}>
+            <Link href="/dashboard/documents">Documents</Link>
             <Link href="/dashboard/templates">Templates</Link>
           </nav>
         </div>

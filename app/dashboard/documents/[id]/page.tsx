@@ -1,0 +1,61 @@
+import { notFound } from 'next/navigation';
+import { getCurrentContext } from '../../../../lib/auth/dal';
+import { getDocument, getDocumentSigners } from '../../../../lib/documents/queries';
+import { getDocumentAuditEvents } from '../../../../lib/audit/store';
+import { STATUS_GROUP, STATUS_LABELS } from '../../../../lib/documents/status';
+import SendButton from './SendButton';
+import styles from './page.module.css';
+
+export default async function DocumentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { organization } = await getCurrentContext();
+  const document = await getDocument(id, organization.id);
+  if (!document) notFound();
+
+  const [signers, events] = await Promise.all([
+    getDocumentSigners(document.id),
+    getDocumentAuditEvents(document.id),
+  ]);
+
+  return (
+    <div>
+      <div className={styles.header}>
+        <div>
+          <h1 className={styles.title}>{document.title}</h1>
+          <span className={`${styles.badge} ${styles[STATUS_GROUP[document.status]]}`}>
+            {STATUS_LABELS[document.status]}
+          </span>
+        </div>
+        {document.status === 'draft' && <SendButton documentId={document.id} />}
+      </div>
+
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>Signers</h2>
+        {signers.map((s) => (
+          <div className={styles.signerRow} key={s.id}>
+            <div className={styles.signerInfo}>
+              <span className={styles.signerName}>{s.name} · {s.roleLabel}</span>
+              <span className={styles.signerMeta}>{s.email}</span>
+            </div>
+            <span className={styles.signerMeta}>{s.status}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className={styles.section}>
+        <h2 className={styles.sectionTitle}>Audit trail</h2>
+        {events.length === 0 ? (
+          <p className={styles.signerMeta}>No events yet.</p>
+        ) : (
+          events.map((e) => (
+            <div className={styles.auditRow} key={String(e.id)}>
+              <span className={styles.auditTime}>{new Date(e.created_at).toLocaleString()}</span>
+              <span className={styles.auditEvent}>{e.event}</span>
+              <span className={styles.auditActor}>{e.actor}</span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

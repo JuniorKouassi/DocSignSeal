@@ -1,4 +1,8 @@
 .header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--dss-space-3);
   margin-bottom: var(--dss-space-4);
 }
 
@@ -9,7 +13,30 @@
   color: var(--dss-text);
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--dss-space-3);
+  flex-shrink: 0;
+}
+
 .meta {
   font-size: 13px;
   color: var(--dss-text-muted);
+}
+
+.sendLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: var(--dss-radius);
+  background: var(--dss-navy);
+  color: var(--dss-text-invert);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.sendLink:hover {
+  background: var(--dss-navy-hover);
 }

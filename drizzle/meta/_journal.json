@@ -22,6 +22,20 @@
       "when": 1788384623721,
       "tag": "0002_templates_and_files",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788385466414,
+      "tag": "0003_documents_signers_fields_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788385478035,
+      "tag": "0004_audit_events_append_only",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,6 @@
 import {
   bigint,
+  bigserial,
   boolean,
   customType,
   index,
@@ -22,11 +23,26 @@ const citext = customType<{ data: string }>({ dataType: () => 'citext' });
 /* Wrapped per-file data encryption key. Drizzle has no built-in bytea helper. */
 const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 
+/* Drizzle has no built-in inet helper either. */
+const inet = customType<{ data: string }>({ dataType: () => 'inet' });
+
 export const membershipRole = pgEnum('membership_role', ['owner', 'admin', 'member']);
 
 export const fieldType = pgEnum('field_type', [
   'signature', 'initials', 'fullname', 'date', 'text', 'number', 'checkbox', 'dropdown', 'attachment',
 ]);
+
+export const documentRouting = pgEnum('document_routing', ['sequential', 'parallel']);
+
+export const documentStatus = pgEnum('document_status', [
+  'draft', 'sent', 'in_progress', 'completed', 'declined', 'voided', 'expired',
+]);
+
+export const signerAuthMethod = pgEnum('signer_auth_method', [
+  'link_only', 'email_otp', 'sms_otp', 'password', 'qes',
+]);
+
+export const signerStatus = pgEnum('signer_status', ['pending', 'viewed', 'signed', 'declined']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -120,4 +136,91 @@ export const templateFields = pgTable('template_fields', {
   index('template_fields_template_page_idx').on(t.templateId, t.page),
 ]);
 
-export const schema = { users, organizations, memberships, sessions, files, templates, templateFields };
+/* One execution of a template's layout by real people. A document can also
+   be created from a one-off file with no template (templateId null). */
+export const documents = pgTable('documents', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  templateId: uuid('template_id').references(() => templates.id),
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  title: text('title').notNull(),
+  sourceFileId: uuid('source_file_id').notNull().references(() => files.id),
+  completedFileId: uuid('completed_file_id').references(() => files.id),
+  routing: documentRouting('routing').notNull().default('sequential'),
+  status: documentStatus('status').notNull().default('draft'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  contentSha256: text('content_sha256'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('documents_org_status_created_idx').on(t.organizationId, t.status, t.createdAt),
+]);
+
+export const documentSigners = pgTable('document_signers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+  orderIndex: integer('order_index').notNull(),
+  name: text('name').notNull(),
+  email: citext('email').notNull(),
+  phone: text('phone'),
+  roleLabel: text('role_label').notNull(),
+  tokenHash: text('token_hash'),
+  authMethod: signerAuthMethod('auth_method').notNull().default('link_only'),
+  status: signerStatus('status').notNull().default('pending'),
+  viewedAt: timestamp('viewed_at', { withTimezone: true }),
+  signedAt: timestamp('signed_at', { withTimezone: true }),
+  ip: inet('ip'),
+  userAgent: text('user_agent'),
+  declineReason: text('decline_reason'),
+}, (t) => [
+  uniqueIndex('document_signers_document_order_unique').on(t.documentId, t.orderIndex),
+  uniqueIndex('document_signers_token_hash_unique').on(t.tokenHash),
+]);
+
+/* Same shape as template_fields, copied over at document-creation time, plus
+   the signer's actual value once they fill it in. */
+export const documentFields = pgTable('document_fields', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+  signerId: uuid('signer_id').notNull().references(() => documentSigners.id, { onDelete: 'cascade' }),
+  page: integer('page').notNull(),
+  x: numeric('x', { precision: 6, scale: 3, mode: 'number' }).notNull(),
+  y: numeric('y', { precision: 6, scale: 3, mode: 'number' }).notNull(),
+  w: numeric('w', { precision: 6, scale: 3, mode: 'number' }).notNull(),
+  h: numeric('h', { precision: 6, scale: 3, mode: 'number' }).notNull(),
+  type: fieldType('type').notNull(),
+  required: boolean('required').notNull().default(true),
+  meta: jsonb('meta').notNull().default({}).$type<Record<string, unknown>>(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  valueText: text('value_text'),
+  valueFileId: uuid('value_file_id').references(() => files.id),
+  signedAt: timestamp('signed_at', { withTimezone: true }),
+  // Raw pointer path for drawn signatures -- biometric evidence in some jurisdictions.
+  strokeData: jsonb('stroke_data').$type<{ x: number; y: number }[][] | null>(),
+}, (t) => [
+  index('document_fields_document_page_idx').on(t.documentId, t.page),
+]);
+
+/* Append only -- a database trigger (drizzle/0003_documents_signers_fields.sql)
+   rejects any UPDATE or DELETE against this table. hash chains prev_hash, so
+   rewriting one old row breaks verification of everything after it. */
+export const auditEvents = pgTable('audit_events', {
+  id: bigserial('id', { mode: 'bigint' }).primaryKey(),
+  documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+  signerId: uuid('signer_id').references(() => documentSigners.id),
+  event: text('event').notNull(),
+  actor: text('actor'),
+  ip: inet('ip'),
+  userAgent: text('user_agent'),
+  meta: jsonb('meta').notNull().default({}).$type<Record<string, unknown>>(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  prevHash: text('prev_hash'),
+  hash: text('hash').notNull(),
+}, (t) => [
+  index('audit_events_document_idx').on(t.documentId, t.id),
+]);
+
+export const schema = {
+  users, organizations, memberships, sessions, files, templates, templateFields,
+  documents, documentSigners, documentFields, auditEvents,
+};

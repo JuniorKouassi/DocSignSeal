@@ -1,0 +1,134 @@
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--dss-space-3);
+  margin-bottom: var(--dss-space-5);
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--dss-text);
+}
+
+.badge {
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: var(--dss-radius-pill);
+  padding: 4px 12px;
+}
+
+.badge.draft {
+  background: var(--dss-draft-bg);
+  color: var(--dss-draft-fg);
+}
+
+.badge.waiting {
+  background: var(--dss-waiting-bg);
+  color: var(--dss-waiting-fg);
+}
+
+.badge.signed {
+  background: var(--dss-signed-bg);
+  color: var(--dss-signed-fg);
+}
+
+.badge.declined {
+  background: var(--dss-declined-bg);
+  color: var(--dss-declined-fg);
+}
+
+.sendButton {
+  border: none;
+  border-radius: var(--dss-radius);
+  background: var(--dss-navy);
+  color: var(--dss-text-invert);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.sendButton:hover {
+  background: var(--dss-navy-hover);
+}
+
+.sendButton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sendError {
+  font-size: 13px;
+  color: var(--dss-declined-fg);
+  margin-top: 8px;
+}
+
+.section {
+  margin-bottom: var(--dss-space-5);
+  max-width: 640px;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dss-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 var(--dss-space-3);
+}
+
+.signerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dss-space-3);
+  padding: var(--dss-space-3);
+  background: var(--dss-paper);
+  border: 1px solid var(--dss-line);
+  border-radius: var(--dss-radius);
+  margin-bottom: 8px;
+}
+
+.signerInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.signerName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dss-text);
+}
+
+.signerMeta {
+  font-size: 12px;
+  color: var(--dss-text-muted);
+}
+
+.auditRow {
+  display: flex;
+  gap: var(--dss-space-3);
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--dss-line);
+}
+
+.auditTime {
+  color: var(--dss-text-faint);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  width: 160px;
+}
+
+.auditEvent {
+  color: var(--dss-text);
+  font-weight: 600;
+}
+
+.auditActor {
+  color: var(--dss-text-muted);
+}
