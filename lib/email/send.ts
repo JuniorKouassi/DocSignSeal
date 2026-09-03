@@ -1,20 +1,30 @@
 import 'server-only';
 import { Resend } from 'resend';
 
-if (!process.env.RESEND_API_KEY) {
-  throw new Error('RESEND_API_KEY is not set. Copy .env.example to .env.local and fill it in.');
-}
-if (!process.env.EMAIL_FROM) {
-  throw new Error('EMAIL_FROM is not set (e.g. "DocSignSeal <noreply@yourdomain.com>").');
-}
-if (!process.env.APP_URL) {
-  throw new Error('APP_URL is not set (e.g. "https://app.docsignseal.com" or "http://localhost:3000").');
+/* Lazy: see lib/db/client.ts's comment for why. Next.js's build-time
+   page-data collection imports every route module without calling any
+   handler; validating these at module scope meant no route could build
+   until Resend was configured, even ones that never send email. */
+
+let client: Resend | null = null;
+
+function getClient(): Resend {
+  if (client) return client;
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY is not set. Copy .env.example to .env.local and fill it in.');
+  }
+  client = new Resend(process.env.RESEND_API_KEY);
+  return client;
 }
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+function requireEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is not set (see .env.example).`);
+  return value;
+}
 
 export function signingUrl(rawToken: string) {
-  return `${process.env.APP_URL}/sign/${rawToken}`;
+  return `${requireEnv('APP_URL')}/sign/${rawToken}`;
 }
 
 export async function sendSignerInvite(opts: {
@@ -26,8 +36,8 @@ export async function sendSignerInvite(opts: {
   rawToken: string;
 }) {
   const url = signingUrl(opts.rawToken);
-  await resend.emails.send({
-    from: process.env.EMAIL_FROM!,
+  await getClient().emails.send({
+    from: requireEnv('EMAIL_FROM'),
     to: opts.to,
     subject: `${opts.senderName} sent you a document to sign: ${opts.documentTitle}`,
     text: [

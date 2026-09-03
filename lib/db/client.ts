@@ -12,11 +12,29 @@ import { schema } from './schema';
 
    No `ws` package/neonConfig.webSocketConstructor override needed: both
    Cloudflare Workers and Node 22+ (local dev) provide a native global
-   WebSocket, which is all the underlying driver needs. */
+   WebSocket, which is all the underlying driver needs.
 
-if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.');
+   Lazily constructed: Next.js's build-time page-data collection imports
+   every route module to read its config, without calling any handler.
+   Throwing here at module scope (as this used to) meant no route could
+   build until DATABASE_URL existed, even ones that never touch the
+   database. Connecting only happens the first time a query actually runs. */
+
+type Db = ReturnType<typeof drizzle<typeof schema>>;
+let instance: Db | null = null;
+
+function getDb(): Db {
+  if (instance) return instance;
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.');
+  }
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  instance = drizzle(pool, { schema });
+  return instance;
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle(pool, { schema });
+export const db: Db = new Proxy({} as Db, {
+  get(_target, prop, receiver) {
+    return Reflect.get(getDb() as object, prop, receiver);
+  },
+});
