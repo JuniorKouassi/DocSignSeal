@@ -10,7 +10,7 @@
     "lint": "eslint",
     "test": "node test/audit.test.mjs && node test/password.test.mjs && node test/encryption.test.mjs && node test/document-fields.test.mjs",
     "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
+    "db:migrate": "node --env-file=.env scripts/migrate.mjs",
     "db:studio": "drizzle-kit studio",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
