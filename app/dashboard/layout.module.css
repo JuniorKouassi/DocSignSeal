@@ -83,3 +83,25 @@
   flex: 1;
   padding: var(--dss-space-5);
 }
+
+.mobileOnly {
+  display: none;
+}
+
+/* First @media rule in the app -- 768px, chosen fresh, no prior convention
+   to match. Below it: bottom tab bar instead of the top nav, and extra
+   bottom padding on .content so the last card isn't hidden behind the
+   fixed-position tab bar (see components/shell/MobileTabBar.module.css). */
+@media (max-width: 767px) {
+  .desktopOnly {
+    display: none;
+  }
+
+  .mobileOnly {
+    display: block;
+  }
+
+  .mobileContent {
+    padding-bottom: calc(66px + var(--dss-space-5) + env(safe-area-inset-bottom, 0px));
+  }
+}

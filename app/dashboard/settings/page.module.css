@@ -1,0 +1,68 @@
+.title {
+  font-size: 26px;
+  margin: 10px 0 14px;
+  letter-spacing: -0.02em;
+  color: var(--dss-text);
+}
+
+.orgHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--dss-space-2);
+  margin-bottom: var(--dss-space-4);
+}
+
+.orgName {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dss-text);
+}
+
+.roleBadge {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  background: var(--dss-tint);
+  color: var(--dss-primary);
+  border-radius: var(--dss-radius-pill);
+  padding: 3px 10px;
+}
+
+.rowItem {
+  width: 100%;
+  background: var(--dss-paper);
+  border: 1px solid var(--dss-line);
+  border-radius: var(--dss-radius-lg);
+  padding: var(--dss-space-4);
+  margin-bottom: var(--dss-space-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 15px;
+  color: var(--dss-text);
+  text-decoration: none;
+}
+
+.rowItem[data-inert='true'] {
+  color: var(--dss-text-faint);
+  cursor: default;
+}
+
+.value {
+  color: var(--dss-text-faint);
+}
+
+.logoutForm {
+  margin-top: var(--dss-space-5);
+}
+
+.logoutButton {
+  width: 100%;
+  background: none;
+  color: var(--dss-navy);
+  border: 1px solid var(--dss-line-strong);
+  border-radius: var(--dss-radius);
+  padding: 14px;
+  font-size: 15px;
+  cursor: pointer;
+}

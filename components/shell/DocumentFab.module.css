@@ -1,0 +1,53 @@
+.fab {
+  display: none;
+}
+
+.speed {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .fab {
+    position: fixed;
+    right: 16px;
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--dss-navy);
+    color: #fff;
+    border: 0;
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 25;
+  }
+
+  .speed {
+    position: fixed;
+    right: 16px;
+    bottom: calc(140px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--dss-space-2);
+    z-index: 25;
+  }
+}
+
+.speedButton {
+  background: var(--dss-tint);
+  color: var(--dss-navy);
+  border: 0;
+  border-radius: var(--dss-radius-pill);
+  padding: 11px 18px;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.speedButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

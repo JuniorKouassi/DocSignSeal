@@ -1,0 +1,11 @@
+.title {
+  font-size: 26px;
+  margin: 10px 0 14px;
+  letter-spacing: -0.02em;
+  color: var(--dss-text);
+}
+
+.empty {
+  font-size: 14px;
+  color: var(--dss-text-muted);
+}
