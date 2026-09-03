@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "docsignseal",
-  "main": "./custom-worker.ts",
+  "main": ".open-next/worker.js",
   "compatibility_date": "2025-01-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
 
@@ -10,8 +10,16 @@
     "binding": "ASSETS"
   },
 
+  // CONTAINERS_WORKER: the two Cloudflare Containers (PDF-page rendering,
+  // Gotenberg) live in the separate containers/worker/ project, not here.
+  // opennextjs-cloudflare's deploy command has an unresolved bug
+  // (opennextjs/opennextjs-cloudflare#952) when Container bindings are
+  // defined directly in this app's own wrangler.jsonc -- an ordinary
+  // service binding to a plain (non-OpenNext) Worker sidesteps it
+  // entirely. See lib/render/client.ts and lib/gotenberg/client.ts.
   "services": [
-    { "binding": "WORKER_SELF_REFERENCE", "service": "docsignseal" }
+    { "binding": "WORKER_SELF_REFERENCE", "service": "docsignseal" },
+    { "binding": "CONTAINERS_WORKER", "service": "docsignseal-containers" }
   ],
 
   // OpenNext's own ISR/data cache, distinct from the document-storage bucket
@@ -21,38 +29,5 @@
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "docsignseal-cache" }
   ],
 
-  "images": { "binding": "IMAGES" },
-
-  // Two Cloudflare Containers:
-  // - RenderContainer (containers/render-service/): PDF-page-to-PNG, a
-  //   native addon (@napi-rs/canvas) that can't run in the Worker itself.
-  //   See lib/render/client.ts.
-  // - GotenbergContainer: the official Gotenberg image, pulled directly
-  //   from Docker Hub (no local Dockerfile needed) -- build step 8,
-  //   Word-to-PDF only. See lib/gotenberg/client.ts. Basic auth
-  //   credentials are set as Worker secrets (GOTENBERG_USERNAME /
-  //   GOTENBERG_PASSWORD via `wrangler secret put`), read in
-  //   custom-worker.ts's constructor, never committed here.
-  "containers": [
-    {
-      "class_name": "RenderContainer",
-      "image": "./containers/render-service/Dockerfile",
-      "max_instances": 2
-    },
-    {
-      "class_name": "GotenbergContainer",
-      "image": "docker.io/gotenberg/gotenberg:8.15",
-      "max_instances": 1
-    }
-  ],
-  "durable_objects": {
-    "bindings": [
-      { "name": "RENDER_CONTAINER", "class_name": "RenderContainer" },
-      { "name": "GOTENBERG_CONTAINER", "class_name": "GotenbergContainer" }
-    ]
-  },
-  "migrations": [
-    { "tag": "v1", "new_sqlite_classes": ["RenderContainer"] },
-    { "tag": "v2", "new_sqlite_classes": ["GotenbergContainer"] }
-  ]
+  "images": { "binding": "IMAGES" }
 }

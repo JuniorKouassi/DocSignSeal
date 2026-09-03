@@ -1,16 +1,14 @@
 import 'server-only';
-import { getRandom } from '@cloudflare/containers';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-/* Calls the render-service container (containers/render-service/) over
-   plain HTTP -- the container does the actual PDF-to-PNG rasterizing via
-   @napi-rs/canvas, which cannot run inside this Worker's V8 isolate.
-   getRandom spreads requests across wrangler.jsonc's configured
-   max_instances rather than pinning every call to one container. */
+/* Calls the render-service container via the containers/worker/ service
+   binding (CONTAINERS_WORKER) -- see wrangler.jsonc's comment for why the
+   render-service container can't be bound directly in this app's own
+   config. The URL host is a placeholder; only the path/method/body matter
+   to a service binding's Fetcher. */
 async function callContainer(path: string, bytes: Buffer): Promise<Response> {
   const { env } = getCloudflareContext();
-  const container = await getRandom(env.RENDER_CONTAINER, 2);
-  return container.fetch(`http://render-service${path}`, {
+  return env.CONTAINERS_WORKER.fetch(`https://containers-worker/render-service${path}`, {
     method: 'POST',
     body: new Uint8Array(bytes),
   });

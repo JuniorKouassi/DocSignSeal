@@ -32,7 +32,6 @@
   ],
   "exclude": [
     "node_modules",
-    "containers",
-    "custom-worker.ts"
+    "containers"
   ]
 }

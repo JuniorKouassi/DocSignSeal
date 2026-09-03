@@ -3,23 +3,22 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const nextConfig: NextConfig = {};
 
-// Makes Cloudflare bindings (the render-service container, env vars, etc.)
-// available when running `next dev` locally, not just after a real deploy.
-// Must not run during `next build`: with Container bindings configured, it
-// requires a build id that only exists inside a real deploy/dev session.
+// Makes Cloudflare bindings (env vars, the CONTAINERS_WORKER service
+// binding, etc.) available when running `next dev` locally, not just after
+// a real deploy.
 //
-// Also wrapped in .catch(): local Container emulation needs Docker running:
-// without it, this rejects with an unrelated-looking "Build ID should be
-// set" assertion. Left unhandled, that crashes the whole dev server, not
-// just the container-dependent routes -- swallow it here so auth/database/
-// everything else still works locally; only calls that actually reach the
+// Wrapped in .catch(): without `wrangler dev`/Docker context set up
+// locally, this can still fail to fully emulate some bindings. Left
+// unhandled, that would crash the whole dev server, not just the routes
+// that need those bindings -- swallow it here so auth/database/everything
+// else still works locally; only calls that actually reach the
 // render-service or Gotenberg containers (lib/render/client.ts,
-// lib/gotenberg/client.ts) will fail until Docker is running or this is
-// tested against a real deploy.
+// lib/gotenberg/client.ts, via the containers/worker/ service binding)
+// will fail until this is tested against a real deploy.
 if (process.env.NODE_ENV === "development") {
   initOpenNextCloudflareForDev().catch((err: unknown) => {
     console.warn(
-      "[cloudflare dev] Container bindings unavailable locally (needs Docker running) -- page-image rendering and conversions will fail until deployed or Docker is started.",
+      "[cloudflare dev] Some Cloudflare bindings unavailable locally -- page-image rendering and conversions will fail until deployed.",
       err
     );
   });
