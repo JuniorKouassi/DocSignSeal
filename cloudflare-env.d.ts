@@ -7,12 +7,9 @@
 // cloudflare's own declaration of the same name -- no `declare global`
 // wrapper needed as long as that stays true.
 interface CloudflareEnv {
-  CONTAINERS_WORKER: Fetcher;
-
-  // Secrets/vars -- also read via process.env elsewhere in the app
-  // (OpenNext populates process.env from these as of this wrangler.jsonc's
-  // compatibility_date), declared here only for anything read through
-  // getCloudflareContext().env directly.
+  // All read via process.env (OpenNext populates it from these as of this
+  // wrangler.jsonc's compatibility_date) -- declared here only in case
+  // anything ever reads them through getCloudflareContext().env directly.
   DATABASE_URL: string;
   FILE_ENCRYPTION_MASTER_KEY: string;
   S3_BUCKET: string;
@@ -23,9 +20,11 @@ interface CloudflareEnv {
   RESEND_API_KEY: string;
   EMAIL_FROM: string;
   APP_URL: string;
-  // Also needed here (not just in containers/worker/): the main app builds
-  // the Basic Auth header it sends to Gotenberg itself, so it must know the
-  // same shared credential -- set as a matching secret on both workers.
+  // Render-hosted services (see lib/render/client.ts, lib/gotenberg/client.ts,
+  // .env.example) -- plain HTTPS, not Cloudflare bindings.
+  RENDER_SERVICE_URL: string;
+  RENDER_SERVICE_KEY: string;
+  GOTENBERG_URL: string;
   GOTENBERG_USERNAME: string;
   GOTENBERG_PASSWORD: string;
 }

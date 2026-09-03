@@ -1,12 +1,25 @@
 import { createServer } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import { getPageCount, renderPageToPng } from './render.mjs';
 
 /* Minimal HTTP wrapper around render.mjs, deliberately dependency-free
    (node:http, not Express) -- this container does exactly two things.
-   Called from the main Next.js app (running on Cloudflare Workers) via a
-   Durable Object container binding; see lib/render/client.ts there. */
+   Called from the main Next.js app over plain HTTPS (deployed on Render,
+   not a Cloudflare-internal binding, so it's a public URL) -- see
+   lib/render/client.ts there.
+
+   RENDER_SERVICE_KEY gates /count and /render since this is now reachable
+   from the public internet, not just a private service binding. /health
+   stays open for Render's own health checks. */
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 8080;
+const SERVICE_KEY = process.env.RENDER_SERVICE_KEY;
+
+function safeEqual(a, b) {
+  const ba = Buffer.from(a ?? '');
+  const bb = Buffer.from(b ?? '');
+  return ba.length === bb.length && ba.length > 0 && timingSafeEqual(ba, bb);
+}
 
 async function readBody(req) {
   const chunks = [];
@@ -21,6 +34,12 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/health') {
       res.writeHead(200, { 'Content-Type': 'text/plain' });
       res.end('ok');
+      return;
+    }
+
+    if (!safeEqual(req.headers['x-render-service-key'], SERVICE_KEY)) {
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('Unauthorized');
       return;
     }
 
@@ -55,6 +74,10 @@ const server = createServer(async (req, res) => {
     res.end('Render failed: ' + (err?.message ?? String(err)));
   }
 });
+
+if (!SERVICE_KEY) {
+  console.warn('RENDER_SERVICE_KEY is not set -- /count and /render will reject every request.');
+}
 
 server.listen(PORT, () => {
   console.log(`render-service listening on :${PORT}`);

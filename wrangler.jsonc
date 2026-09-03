@@ -10,16 +10,8 @@
     "binding": "ASSETS"
   },
 
-  // CONTAINERS_WORKER: the two Cloudflare Containers (PDF-page rendering,
-  // Gotenberg) live in the separate containers/worker/ project, not here.
-  // opennextjs-cloudflare's deploy command has an unresolved bug
-  // (opennextjs/opennextjs-cloudflare#952) when Container bindings are
-  // defined directly in this app's own wrangler.jsonc -- an ordinary
-  // service binding to a plain (non-OpenNext) Worker sidesteps it
-  // entirely. See lib/render/client.ts and lib/gotenberg/client.ts.
   "services": [
-    { "binding": "WORKER_SELF_REFERENCE", "service": "docsignseal" },
-    { "binding": "CONTAINERS_WORKER", "service": "docsignseal-containers" }
+    { "binding": "WORKER_SELF_REFERENCE", "service": "docsignseal" }
   ],
 
   // OpenNext's own ISR/data cache, distinct from the document-storage bucket
@@ -29,5 +21,13 @@
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "docsignseal-cache" }
   ],
 
+  // The PDF-page render service and Gotenberg are NOT Cloudflare bindings:
+  // Cloudflare Containers currently has an unresolved platform bug pushing
+  // container images (401 Unauthorized even with correctly-scoped tokens --
+  // cloudflare/workers-sdk#12483, affecting many unrelated users). Both run
+  // on Render instead and are reached over plain HTTPS -- see
+  // lib/render/client.ts, lib/gotenberg/client.ts, and RENDER_SERVICE_URL/
+  // RENDER_SERVICE_KEY/GOTENBERG_URL/GOTENBERG_USERNAME/GOTENBERG_PASSWORD
+  // in .env.example.
   "images": { "binding": "IMAGES" }
 }
