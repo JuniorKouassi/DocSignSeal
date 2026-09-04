@@ -6,7 +6,7 @@ import { toAnnotation } from '../../src/document-fields.mjs';
 import { db } from '../db/client';
 import { annotations, documents, documentFields, documentSigners, signatures, stamps } from '../db/schema';
 import { readFileBytes, storeFile } from '../files/store';
-import { appendAuditEvent, getDocumentAuditEvents, verifyDocumentChain } from '../audit/store';
+import { appendAuditEvent, verifyDocumentChain } from '../audit/store';
 
 /* HANDOFF.md build step 6: "Call flatten(), then sealDocument(), store the
    completed file, write document.completed." Called after every
@@ -73,26 +73,16 @@ export async function completeDocumentIfAllSigned(documentId: string) {
   const allAnnotations = [...fieldAnnotations, ...placedAnnotations];
 
   const sourceBytes = await readFileBytes(doc.sourceFileId, doc.organizationId);
-  const events = await getDocumentAuditEvents(documentId);
 
-  const certificate = {
-    documentTitle: doc.title,
-    documentId: doc.id,
-    signers: signers.map((s) => ({
-      name: s.name,
-      email: s.email,
-      status: s.status,
-      signed_at: s.signedAt ? s.signedAt.toISOString() : null,
-      auth_method: s.authMethod,
-      ip: s.ip ?? null,
-    })),
-    events,
-  };
-
-  // flatten.mjs is untyped JS; TS infers its options' types too narrowly
-  // from their default values alone (e.g. `certificate = null` infers as
-  // exactly `null`), not from how the function actually uses them.
-  const { bytes, sha256 } = await flatten({ sourceBytes, annotations: allAnnotations, assets, certificate } as unknown as Parameters<typeof flatten>[0]);
+  // No certificate-of-completion page: the sealed PDF is the original
+  // content with marks burned in, nothing appended (product decision --
+  // HANDOFF.md originally specified one, deliberately overridden). The
+  // audit trail and seal are still fully recorded and verifiable, just not
+  // printed into the document itself. flatten.mjs is untyped JS; TS infers
+  // its options' types too narrowly from their default values alone (e.g.
+  // `certificate = null` infers as exactly `null`), not from how the
+  // function actually uses them.
+  const { bytes, sha256 } = await flatten({ sourceBytes, annotations: allAnnotations, assets } as unknown as Parameters<typeof flatten>[0]);
 
   const chain = await verifyDocumentChain(documentId);
   const seal = sealDocument(chain.ok ? chain.head : null, sha256);
