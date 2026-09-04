@@ -19,7 +19,7 @@ export default async function DocumentsPage() {
         <div className={styles.header}>
           <h1 className={styles.title}>Documents</h1>
           <div className={styles.headerActions}>
-            <Link href="/dashboard/documents/upload-sign" className={styles.uploadSignLink}>Upload &amp; sign</Link>
+            <Link href="/dashboard/documents/upload-sign" className={styles.uploadSignLink}>Upload - Sign - Stamp</Link>
             <Link href="/dashboard/templates/new" className={styles.newLink}>New multi-signer document</Link>
           </div>
         </div>

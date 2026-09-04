@@ -9,7 +9,7 @@ export default function UploadSignPage() {
 
   return (
     <div className={styles.card}>
-      <h1 className={styles.title}>Upload &amp; sign</h1>
+      <h1 className={styles.title}>Upload - Sign - Stamp</h1>
       <p className={styles.hint}>
         No template, no other signers -- just this document and your own marks on it.
       </p>

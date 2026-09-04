@@ -94,11 +94,23 @@ export async function flatten({
       if (a.type === 'signature' || a.type === 'initials' || a.type === 'stamp') {
         const img = await image(a.ref_file_id);
         const scale = Math.min(box.w / img.width, box.h / img.height);
+        const drawWidth = img.width * scale;
+        const drawHeight = img.height * scale;
+        /* Centered in the box, not anchored to its corner: the aspect-ratio-
+           preserving scale above almost never fills the box exactly (a wide,
+           short signature in a taller box, say), and the preview
+           (AnnotateView.module.css's .markImg, object-fit: contain) already
+           centers the leftover space evenly on both sides. Anchoring here
+           instead put the image flush against the box's corner in the
+           downloaded PDF while the live preview showed it centered -- same
+           box, two different results, which is what a signature "shifting
+           left" between the annotate view and the sealed download actually
+           was. */
         page.drawImage(img, {
-          x: box.x,
-          y: box.y,
-          width: img.width * scale,
-          height: img.height * scale,
+          x: box.x + (box.w - drawWidth) / 2,
+          y: box.y + (box.h - drawHeight) / 2,
+          width: drawWidth,
+          height: drawHeight,
           rotate: rotation,
           opacity: a.opacity ?? 1
         });
