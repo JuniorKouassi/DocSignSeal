@@ -7,6 +7,12 @@
 html,
 body {
   height: 100%;
+  /* Backstop, not the fix -- a long unbroken string (a seal hash, an email,
+     a token) in a flex row with no wrap/min-width:0 can still force the row
+     wider than the viewport. This clips the resulting horizontal scroll so
+     it reads as "cut off" instead of "the whole page scrolls sideways",
+     while overflow-wrap below stops most of these before they even need it. */
+  overflow-x: hidden;
 }
 
 body {
@@ -14,6 +20,7 @@ body {
   background: var(--dss-wash);
   color: var(--dss-text);
   font-family: var(--dss-font-ui);
+  overflow-wrap: anywhere;
 }
 
 a {

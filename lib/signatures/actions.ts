@@ -17,9 +17,10 @@ export type SignatureFormState = { errors?: Record<string, string> } | { ok: tru
 
 /* Every capture method -- draw, type, gallery, scan -- converges here as a
    plain PNG file plus optional stroke data, same shape uploadStamp already
-   uses for stamps. Gallery- and scan-sourced images are stored exactly as
-   picked/captured (no background removal in this pass -- see HANDOFF.md's
-   "known gaps" precedent for the Unicode-font fallback, same treatment). */
+   uses for stamps. Gallery- and scan-sourced images have their near-white
+   background stripped client-side before they ever reach this action (see
+   lib/signatures/toPng.ts's removeNearWhiteBackground) so every signature
+   this action stores is already transparent outside the ink itself. */
 export async function createSignature(_state: SignatureFormState, formData: FormData): Promise<SignatureFormState> {
   const { user, organization } = await getCurrentContext();
 

@@ -78,6 +78,22 @@ export function AnnotateView({
     surfaceRef.current?.scrollTo({ top: 0 });
   }, [page]);
 
+  // Every page render is a fresh round trip through the render-service
+  // container (readFileBytes + a full re-parse of the source PDF, no
+  // caching beyond the browser's own HTTP cache) -- there's no fixing that
+  // from here, but prefetching the neighbours means the image is usually
+  // already in the browser cache by the time Prev/Next is tapped, instead
+  // of only starting the fetch then.
+  useEffect(() => {
+    const neighbours = [page - 1, page + 1].filter((p) => p >= 1 && p <= pageCount);
+    const images = neighbours.map((p) => {
+      const img = new Image();
+      img.src = `/api/documents/${documentId}/pages/${p}`;
+      return img;
+    });
+    return () => { images.forEach((img) => { img.src = ''; }); };
+  }, [page, pageCount, documentId]);
+
   function openToolbar() {
     setToolbarOpen(true);
     setError(null);
@@ -121,18 +137,21 @@ export function AnnotateView({
     const dy = p.y - drag.startY;
 
     if (drag.mode === 'move') {
-      const w = drag.box.w;
-      const h = drag.box.h;
+      // No edge clamp beyond keeping most of the box reachable -- a
+      // signature in a corner or bleeding slightly off the page is a real
+      // layout some documents need, not a mistake to prevent. flatten.mjs
+      // just draws whatever x/y/w/h it's given; a mark that ends up mostly
+      // off-page is a placement choice, not something that can crash it.
       setPending({
         ...pending,
-        x: Math.min(100 - w, Math.max(0, drag.box.x + dx)),
-        y: Math.min(100 - h, Math.max(0, drag.box.y + dy)),
+        x: Math.min(100, Math.max(-drag.box.w + 5, drag.box.x + dx)),
+        y: Math.min(100, Math.max(-drag.box.h + 5, drag.box.y + dy)),
       });
     } else {
       setPending({
         ...pending,
-        w: Math.min(80, Math.max(6, drag.box.w + dx)),
-        h: Math.min(80, Math.max(4, drag.box.h + dy)),
+        w: Math.min(100, Math.max(3, drag.box.w + dx)),
+        h: Math.min(100, Math.max(3, drag.box.h + dy)),
       });
     }
   }
