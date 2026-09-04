@@ -48,6 +48,7 @@ export default async function AnnotatePage({ params }: { params: Promise<{ id: s
           y: a.y,
           w: a.w,
           h: a.h,
+          rotation: a.rotation,
           refId: a.refId,
           valueText: a.valueText,
         }))}

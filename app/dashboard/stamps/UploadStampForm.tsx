@@ -3,6 +3,7 @@
 import { useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadStamp } from '../../../lib/stamps/actions';
+import { pngBlobFromImageFile } from '../../../lib/shared/imageToPng';
 import styles from './page.module.css';
 
 export default function UploadStampForm() {
@@ -13,10 +14,36 @@ export default function UploadStampForm() {
     return result;
   }, undefined);
 
+  // Native <form action> submission can't await an async canvas step before
+  // building FormData, so this intercepts submit, normalises whatever image
+  // was picked into a transparent PNG (lib/shared/imageToPng.ts -- same
+  // near-white-background removal as gallery/scan signatures), swaps it
+  // into the FormData in place of the raw file, and dispatches the action
+  // manually. useActionState's `action` accepts a FormData payload directly
+  // like this, not only via <form action=>.
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const file = formData.get('file');
+
+    if (file instanceof File && file.size > 0) {
+      try {
+        const png = await pngBlobFromImageFile(file);
+        formData.set('file', png, 'stamp.png');
+      } catch {
+        // Fall through with the original file -- uploadStamp's own
+        // "only PNG" validation will surface a clear error instead.
+      }
+    }
+
+    action(formData);
+  }
+
   return (
     <div className={styles.uploadCard}>
       <h2 className={styles.uploadTitle}>Add a stamp</h2>
-      <form action={action}>
+      <form onSubmit={handleSubmit}>
         <div className={styles.field}>
           <label htmlFor="name">Name</label>
           <input id="name" name="name" type="text" placeholder="USDI-FC round seal" />
@@ -36,8 +63,9 @@ export default function UploadStampForm() {
           <input id="defaultInk" name="defaultInk" type="color" defaultValue="#1B3FA8" />
         </div>
         <div className={styles.field}>
-          <label htmlFor="file">Transparent PNG</label>
-          <input id="file" name="file" type="file" accept="image/png" />
+          <label htmlFor="file">Image</label>
+          <input id="file" name="file" type="file" accept="image/*" />
+          <span className={styles.hint}>Any background is removed automatically -- no need to pre-clean it.</span>
           {state?.errors?.file && <p className={styles.error}>{state.errors.file}</p>}
         </div>
         <div className={styles.field}>

@@ -207,6 +207,37 @@
   cursor: nwse-resize;
 }
 
+/* Floats above the box's top-center; the connecting "stick" is a pseudo-
+   element rather than a second real element, so there's only one thing to
+   position. Dragging it computes an angle from the box's own center (see
+   handleSurfacePointerMove's 'rotate' branch), so its own screen position
+   doesn't need to track the current rotation -- it's fine for the handle to
+   stay above the (rotated) box rather than swinging around it. */
+.rotateHandle {
+  position: absolute;
+  left: 50%;
+  top: -38px;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--dss-navy);
+  border: 3px solid var(--dss-paper);
+  touch-action: none;
+  cursor: grab;
+}
+
+.rotateHandle::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 16px;
+  background: var(--dss-line-strong);
+  transform: translateX(-50%);
+}
+
 .placeBar {
   flex: none;
   display: flex;

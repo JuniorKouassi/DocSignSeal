@@ -25,8 +25,12 @@ export async function uploadStamp(_state: StampFormState, formData: FormData): P
 
   const errors: Record<string, string> = {};
   if (name.length < 2) errors.name = 'Name this stamp.';
-  if (!(file instanceof File) || file.size === 0) errors.file = 'Choose a transparent PNG.';
-  else if (file.type !== 'image/png') errors.file = 'Only transparent PNG is supported.';
+  // UploadStampForm.tsx always converts whatever image was picked into a
+  // transparent PNG client-side (lib/shared/imageToPng.ts) before this ever
+  // runs -- a non-PNG mime here means that step was skipped or failed, not
+  // that the user picked the "wrong" format themselves.
+  if (!(file instanceof File) || file.size === 0) errors.file = 'Choose an image.';
+  else if (file.type !== 'image/png') errors.file = 'Could not process this image. Try a different file.';
   if (Object.keys(errors).length) return { errors };
 
   const bytes = Buffer.from(await (file as File).arrayBuffer());

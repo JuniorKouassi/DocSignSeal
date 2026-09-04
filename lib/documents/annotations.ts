@@ -29,7 +29,7 @@ export async function applyStamp(
   page: number,
   x: number,
   y: number,
-  opts: { w?: number; h?: number; appliedToAllPages?: boolean } = {}
+  opts: { w?: number; h?: number; appliedToAllPages?: boolean; rotation?: number } = {}
 ): Promise<ApplyStampResult> {
   const { user, organization } = await getCurrentContext();
 
@@ -63,6 +63,7 @@ export async function applyStamp(
     x, y,
     w: opts.w ?? STAMP_DEFAULT_SIZE.w,
     h: opts.h ?? STAMP_DEFAULT_SIZE.h,
+    rotation: opts.rotation ?? 0,
     zIndex: await nextZIndex(documentId),
     inkColor: stamp.defaultInk,
     appliedToAllPages: opts.appliedToAllPages ?? false,
@@ -91,7 +92,7 @@ export async function applySignature(
   page: number,
   x: number,
   y: number,
-  opts: { w?: number; h?: number; appliedToAllPages?: boolean } = {}
+  opts: { w?: number; h?: number; appliedToAllPages?: boolean; rotation?: number } = {}
 ): Promise<ApplyStampResult> {
   const { user, organization } = await getCurrentContext();
 
@@ -111,6 +112,7 @@ export async function applySignature(
     x, y,
     w: opts.w ?? 20,
     h: opts.h ?? 10,
+    rotation: opts.rotation ?? 0,
     zIndex: await nextZIndex(documentId),
     appliedToAllPages: opts.appliedToAllPages ?? false,
   });

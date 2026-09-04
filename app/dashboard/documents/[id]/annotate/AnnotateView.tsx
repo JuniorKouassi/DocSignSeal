@@ -15,12 +15,19 @@ type Placed = {
   type: 'signature' | 'stamp' | 'date';
   page: number;
   x: number; y: number; w: number; h: number;
+  rotation: number;
   refId: string | null;
   valueText: string | null;
 };
 
 type Kind = 'signature' | 'stamp' | 'date';
-type Pending = { kind: Kind; refId: string | null; label: string; x: number; y: number; w: number; h: number };
+type Pending = {
+  kind: Kind;
+  refId: string | null;
+  label: string;
+  x: number; y: number; w: number; h: number;
+  rotation: number; // degrees, screen/CSS convention (clockwise-positive) while editing -- see confirmPlacement
+};
 
 const DEFAULT_SIZE: Record<Kind, { w: number; h: number }> = {
   signature: { w: 22, h: 10 },
@@ -59,6 +66,7 @@ export function AnnotateView({
   const dragRef = useRef<
     | { mode: 'move'; startX: number; startY: number; box: Pending }
     | { mode: 'resize'; anchorX: number; anchorY: number }
+    | { mode: 'rotate' }
     | null
   >(null);
 
@@ -113,7 +121,7 @@ export function AnnotateView({
 
   function choose(kind: Kind, refId: string | null, label: string) {
     const size = DEFAULT_SIZE[kind];
-    setPending({ kind, refId, label, x: 50 - size.w / 2, y: 50 - size.h / 2, ...size });
+    setPending({ kind, refId, label, x: 50 - size.w / 2, y: 50 - size.h / 2, rotation: 0, ...size });
     setSheet(null);
   }
 
@@ -135,7 +143,7 @@ export function AnnotateView({
 
   type Corner = 'nw' | 'ne' | 'sw' | 'se';
 
-  function handleBoxPointerDown(e: ReactPointerEvent, target: 'move' | Corner) {
+  function handleBoxPointerDown(e: ReactPointerEvent, target: 'move' | 'rotate' | Corner) {
     if (!pending) return;
     e.preventDefault();
     e.stopPropagation();
@@ -144,6 +152,11 @@ export function AnnotateView({
     if (target === 'move') {
       const start = pointFromEvent(e);
       dragRef.current = { mode: 'move', startX: start.x, startY: start.y, box: pending };
+      return;
+    }
+
+    if (target === 'rotate') {
+      dragRef.current = { mode: 'rotate' };
       return;
     }
 
@@ -175,7 +188,7 @@ export function AnnotateView({
         x: Math.min(100, Math.max(-drag.box.w + 5, drag.box.x + dx)),
         y: Math.min(100, Math.max(-drag.box.h + 5, drag.box.y + dy)),
       });
-    } else {
+    } else if (drag.mode === 'resize') {
       setPending({
         ...pending,
         w: Math.max(3, Math.abs(p.x - drag.anchorX)),
@@ -183,6 +196,17 @@ export function AnnotateView({
         x: Math.min(p.x, drag.anchorX),
         y: Math.min(p.y, drag.anchorY),
       });
+    } else {
+      // Angle from the box's own center to the pointer, in pixels (not
+      // percent -- pageWrap's width and height scale differently, so a
+      // percent-space angle would be visually skewed unless the box happens
+      // to be square). 0deg is straight up, increasing clockwise, which is
+      // what dragging a handle around the box intuitively feels like.
+      const rect = pageWrapRef.current!.getBoundingClientRect();
+      const centerXpx = rect.left + ((pending.x + pending.w / 2) / 100) * rect.width;
+      const centerYpx = rect.top + ((pending.y + pending.h / 2) / 100) * rect.height;
+      const angle = Math.atan2(e.clientX - centerXpx, -(e.clientY - centerYpx)) * (180 / Math.PI);
+      setPending({ ...pending, rotation: angle });
     }
   }
 
@@ -194,6 +218,16 @@ export function AnnotateView({
     if (!pending) return;
     setError(null);
 
+    // pdf-lib's drawImage `rotate` turns out to be counterclockwise-positive
+    // (the PDF/math convention -- PDF's y axis points up), while CSS
+    // transform: rotate() is clockwise-positive (screen space, y points
+    // down). pending.rotation is tracked in the CSS convention the whole
+    // time it's being dragged (see handleSurfacePointerMove), so it's
+    // negated only right here, once, going into the value flatten.mjs will
+    // actually use -- everything rendered from *server* rotation values
+    // (placedOnPage below) gets negated back for the same reason.
+    const serverRotation = pending.kind === 'date' ? 0 : -pending.rotation;
+
     // Added to local state immediately on success, not left to wait for
     // router.refresh() to round-trip -- that's what was leaving the mark
     // invisible and the Save button disabled right after confirming. The
@@ -204,12 +238,13 @@ export function AnnotateView({
       type: pending.kind,
       page,
       x: pending.x, y: pending.y, w: pending.w, h: pending.h,
+      rotation: serverRotation,
       refId: pending.refId,
       valueText: pending.kind === 'date' ? pending.label : null,
     };
 
     startPlacing(async () => {
-      const opts = { w: pending.w, h: pending.h, appliedToAllPages };
+      const opts = { w: pending.w, h: pending.h, appliedToAllPages, rotation: serverRotation };
       const result = pending.kind === 'signature'
         ? await applySignature(documentId, pending.refId!, page, pending.x, pending.y, opts)
         : pending.kind === 'stamp'
@@ -283,7 +318,10 @@ export function AnnotateView({
             <div
               key={a.id}
               className={styles.mark}
-              style={{ left: `${a.x}%`, top: `${a.y}%`, width: `${a.w}%`, height: `${a.h}%` }}
+              // a.rotation is in pdf-lib's counterclockwise-positive convention
+              // (see confirmPlacement) -- negated back to CSS's clockwise-positive
+              // so a placed mark's preview keeps matching the sealed PDF.
+              style={{ left: `${a.x}%`, top: `${a.y}%`, width: `${a.w}%`, height: `${a.h}%`, transform: `rotate(${-a.rotation}deg)` }}
             >
               {a.type === 'date' ? (
                 <span className={styles.dateMark}>{a.valueText}</span>
@@ -302,7 +340,10 @@ export function AnnotateView({
           {pending && (
             <div
               className={styles.pendingBox}
-              style={{ left: `${pending.x}%`, top: `${pending.y}%`, width: `${pending.w}%`, height: `${pending.h}%` }}
+              style={{
+                left: `${pending.x}%`, top: `${pending.y}%`, width: `${pending.w}%`, height: `${pending.h}%`,
+                transform: `rotate(${pending.rotation}deg)`,
+              }}
               onPointerDown={(e) => handleBoxPointerDown(e, 'move')}
             >
               {pending.kind === 'date' ? (
@@ -322,6 +363,15 @@ export function AnnotateView({
                   onPointerDown={(e) => handleBoxPointerDown(e, corner)}
                 />
               ))}
+              {/* Date is plain text, drawn upright at a fixed size (flatten.mjs) --
+                  rotating it wasn't asked for and its box has no real "face" to
+                  turn, so only signature and stamp get a rotate handle. */}
+              {pending.kind !== 'date' && (
+                <div
+                  className={styles.rotateHandle}
+                  onPointerDown={(e) => handleBoxPointerDown(e, 'rotate')}
+                />
+              )}
             </div>
           )}
         </div>
