@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, useTransition, type PointerEvent as ReactPointerEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { applySignature, applyStamp, applyDate, removeAnnotation } from '../../../../../lib/documents/annotations';
@@ -56,6 +56,27 @@ export function AnnotateView({
 
   const surfaceRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ mode: 'move' | 'resize'; startX: number; startY: number; box: Pending } | null>(null);
+
+  // initialPlaced is only the mount-time snapshot -- router.refresh() re-runs
+  // the server component and hands this component a new `placed` prop, but
+  // useState's initial value is ignored on every render after the first, so
+  // without this effect a refresh would never actually reach the local copy
+  // this component renders from. Not the "derive state from props" anti-
+  // pattern the lint rule is guarding against -- `placed` is also mutated
+  // locally (confirmPlacement's optimistic add, handleRemovePlaced's
+  // optimistic filter) between refreshes, so it can't just be the prop
+  // value used directly at render time.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPlaced(initialPlaced);
+  }, [initialPlaced]);
+
+  // Changing page without resetting scroll left the viewport wherever it was
+  // scrolled to on the previous page, which on a page much shorter than the
+  // last scroll position reads as "stuck"/broken.
+  useEffect(() => {
+    surfaceRef.current?.scrollTo({ top: 0 });
+  }, [page]);
 
   function openToolbar() {
     setToolbarOpen(true);
@@ -123,6 +144,21 @@ export function AnnotateView({
   function confirmPlacement() {
     if (!pending) return;
     setError(null);
+
+    // Added to local state immediately on success, not left to wait for
+    // router.refresh() to round-trip -- that's what was leaving the mark
+    // invisible and the Save button disabled right after confirming. The
+    // synced effect above will reconcile this temp-id row with the real one
+    // once the refreshed props land; nothing reads its id in the meantime.
+    const optimistic: Placed = {
+      id: `pending-${Date.now()}`,
+      type: pending.kind,
+      page,
+      x: pending.x, y: pending.y, w: pending.w, h: pending.h,
+      refId: pending.refId,
+      valueText: pending.kind === 'date' ? pending.label : null,
+    };
+
     startPlacing(async () => {
       const opts = { w: pending.w, h: pending.h, appliedToAllPages };
       const result = pending.kind === 'signature'
@@ -135,6 +171,7 @@ export function AnnotateView({
         setError(result.error);
         return;
       }
+      setPlaced((p) => [...p, optimistic]);
       closeAll();
       router.refresh();
     });

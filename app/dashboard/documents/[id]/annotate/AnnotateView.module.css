@@ -94,8 +94,10 @@
 .surface {
   position: relative;
   flex: 1;
+  min-height: 0;
   overflow: auto;
-  touch-action: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 0 var(--dss-space-4);
 }
 

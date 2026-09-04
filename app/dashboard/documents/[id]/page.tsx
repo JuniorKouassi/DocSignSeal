@@ -24,6 +24,20 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
     getFileMeta(document.sourceFileId, organization.id),
   ]);
 
+  // "Upload & sign" documents (no template -- see createSelfDocument) have
+  // no other entry point back into the annotate view once you've navigated
+  // away: unlike a template-based document, there's no emailed token link
+  // to click, so without this the only way in was the moment right after
+  // upload. Scoped to templateId === null so a multi-party template-based
+  // document (which signs via the token-gated /sign/[token] flow instead)
+  // never shows this.
+  const NOT_YET_DONE = new Set(['draft', 'sent', 'in_progress']);
+  const mySigner = signers.find((s) => s.email === user.email);
+  const canContinueSigning = document.templateId === null
+    && NOT_YET_DONE.has(document.status)
+    && mySigner
+    && mySigner.status !== 'signed';
+
   return (
     <div>
       <div className={styles.header}>
@@ -34,6 +48,9 @@ export default async function DocumentDetailPage({ params }: { params: Promise<{
           </span>
         </div>
         {document.status === 'draft' && <SendButton documentId={document.id} />}
+        {canContinueSigning && (
+          <Link href={`/dashboard/documents/${document.id}/annotate`} className={styles.sendButton}>Continue signing</Link>
+        )}
         {document.status === 'completed' && (
           <Link href={`/api/documents/${document.id}/download`} className={styles.sendButton}>Download sealed PDF</Link>
         )}
