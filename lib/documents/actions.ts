@@ -5,7 +5,7 @@ import { and, eq, ne } from 'drizzle-orm';
 import { issueToken } from '../../src/audit.mjs';
 import { getCurrentContext } from '../auth/dal';
 import { db } from '../db/client';
-import { annotations, documents, documentFields, documentSigners } from '../db/schema';
+import { annotations, documents, documentFields, documentSigners, files } from '../db/schema';
 import { getTemplate, getTemplateFields } from '../templates/queries';
 import { appendAuditEvent } from '../audit/store';
 import { sendSignerInvite } from '../email/send';
@@ -266,20 +266,25 @@ export async function createSelfDocument(_state: CreateSelfDocumentState, formDa
     }
   }
 
-  let pageCount: number;
-  try {
-    pageCount = await getPageCount(bytes);
-  } catch {
+  // getPageCount and storeFile each make their own outbound network call
+  // (the render-service container; S3/R2) and don't depend on each other's
+  // result -- pageCount only fills in a column on the row storeFile
+  // inserts, it isn't needed to perform the upload itself. Running them
+  // concurrently instead of back to back cuts one full network round trip
+  // off the upload -- likely the single biggest code-level lever here;
+  // Gotenberg conversion above (a real LibreOffice invocation) and a cold
+  // Render container on either service are external latency this
+  // application code can't compress further.
+  const [pageCountOutcome, storedFile] = await Promise.all([
+    getPageCount(bytes).then((n) => ({ ok: true as const, n })).catch(() => ({ ok: false as const })),
+    storeFile({ organizationId: organization.id, bytes, mime: 'application/pdf', extension: 'pdf' }),
+  ]);
+
+  if (!pageCountOutcome.ok) {
     return { errors: { file: 'Could not read this PDF. Is it valid?' } };
   }
-
-  const storedFile = await storeFile({
-    organizationId: organization.id,
-    bytes,
-    mime: 'application/pdf',
-    extension: 'pdf',
-    pageCount,
-  });
+  const pageCount = pageCountOutcome.n;
+  await db.update(files).set({ pageCount }).where(eq(files.id, storedFile.id));
 
   const documentId = await db.transaction(async (tx) => {
     const [document] = await tx.insert(documents).values({
