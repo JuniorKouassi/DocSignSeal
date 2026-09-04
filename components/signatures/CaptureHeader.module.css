@@ -1,0 +1,41 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--dss-space-3);
+  padding: var(--dss-space-3) var(--dss-space-4);
+  border-bottom: 1px solid var(--dss-line);
+  background: var(--dss-wash);
+}
+
+.back {
+  border: 0;
+  background: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--dss-navy);
+  text-decoration: none;
+  padding: 4px;
+  flex: none;
+}
+
+.title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--dss-text);
+}
+
+.save {
+  border: 0;
+  background: none;
+  color: var(--dss-primary);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  flex: none;
+}
+
+.save:disabled {
+  color: var(--dss-text-faint);
+  cursor: default;
+}

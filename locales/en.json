@@ -45,5 +45,14 @@
   "scan": "Scan",
   "default": "Default",
   "initials": "Initials",
-  "no_items_filter": "Nothing here yet."
+  "no_items_filter": "Nothing here yet.",
+  "save": "Save",
+  "new_signature": "New signature",
+  "clear": "Clear",
+  "upload_photo": "Upload a photo",
+  "bold": "Bold",
+  "italic": "Italic",
+  "draw_placeholder": "Draw your signature here",
+  "no_sigs": "No signatures yet.",
+  "sig_error": "Something went wrong. Try again."
 }

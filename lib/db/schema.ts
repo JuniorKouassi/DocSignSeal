@@ -51,6 +51,8 @@ export const annotationType = pgEnum('annotation_type', ['stamp', 'signature', '
 
 export const conversionStatus = pgEnum('conversion_status', ['queued', 'running', 'done', 'failed']);
 
+export const signatureKind = pgEnum('signature_kind', ['signature', 'initials']);
+
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   email: citext('email').notNull(),
@@ -306,8 +308,27 @@ export const conversionJobs = pgTable('conversion_jobs', {
   index('conversion_jobs_org_created_idx').on(t.organizationId, t.createdAt),
 ]);
 
+/* Personal signature/initials library -- drawn, typed, picked from a photo,
+   or scanned. One user, many signatures (spec/schema-and-api.md). Not
+   organization-scoped: the underlying file still belongs to an organization
+   via files.organizationId (storeFile's contract needs one to encrypt and
+   key the object), but the signature itself is the user's own regardless of
+   which org they were acting in when they created it. */
+export const signatures = pgTable('signatures', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  kind: signatureKind('kind').notNull().default('signature'),
+  fileId: uuid('file_id').notNull().references(() => files.id),
+  // Raw pointer path for drawn signatures only -- null for typed, gallery, and scanned ones.
+  strokeData: jsonb('stroke_data').$type<{ x: number; y: number }[][] | null>(),
+  isDefault: boolean('is_default').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index('signatures_user_idx').on(t.userId, t.createdAt),
+]);
+
 export const schema = {
   users, organizations, memberships, sessions, files, templates, templateFields,
   documents, documentSigners, documentFields, auditEvents,
-  stamps, stampPermissions, annotations, conversionJobs,
+  stamps, stampPermissions, annotations, conversionJobs, signatures,
 };

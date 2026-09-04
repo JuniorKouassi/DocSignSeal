@@ -45,5 +45,14 @@
   "scan": "Scannen",
   "default": "Standard",
   "initials": "Initialen",
-  "no_items_filter": "Hier ist noch nichts."
+  "no_items_filter": "Hier ist noch nichts.",
+  "save": "Speichern",
+  "new_signature": "Neue Unterschrift",
+  "clear": "Löschen",
+  "upload_photo": "Foto hochladen",
+  "bold": "Fett",
+  "italic": "Kursiv",
+  "draw_placeholder": "Zeichnen Sie hier Ihre Unterschrift",
+  "no_sigs": "Noch keine Unterschriften.",
+  "sig_error": "Etwas ist schiefgelaufen. Versuchen Sie es erneut."
 }

@@ -57,6 +57,13 @@
       "when": 1788390017274,
       "tag": "0007_conversion_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788527670827,
+      "tag": "0008_signatures",
+      "breakpoints": true
     }
   ]
 }

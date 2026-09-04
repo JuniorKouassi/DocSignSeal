@@ -104,6 +104,15 @@ export function GalleryIcon(props: IconProps) {
   );
 }
 
+export function PenIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 20l1-4L16 5l3 3L8 19l-4 1z" />
+      <path d="M13 8l3 3" />
+    </Icon>
+  );
+}
+
 export function ScanIcon(props: IconProps) {
   return (
     <Icon {...props}>
