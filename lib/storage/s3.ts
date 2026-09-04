@@ -31,6 +31,27 @@ function getClient(): S3Client {
       accessKeyId: requireEnv('S3_ACCESS_KEY_ID'),
       secretAccessKey: requireEnv('S3_SECRET_ACCESS_KEY'),
     },
+    /* @aws-sdk/client-s3's runtimeConfig.js resolves every one of these via
+       `config?.x ?? loadNodeConfig(...)` when left unset -- and that
+       fallback tries to read ~/.aws/config through Node's fs module, which
+       Cloudflare Workers' Node compat shim doesn't implement
+       ("[unenv] fs.readFile is not implemented yet!"), even though real
+       credentials were supplied above. Pinning every one of them to a
+       literal value (confirmed by reading node_modules/@aws-sdk/client-s3/
+       dist-es/runtimeConfig.js directly) means none of them ever reach that
+       fallback, regardless of which one the SDK happens to resolve first. */
+    defaultsMode: 'legacy',
+    retryMode: 'standard',
+    maxAttempts: 3,
+    useArnRegion: false,
+    useDualstackEndpoint: false,
+    useFipsEndpoint: false,
+    disableS3ExpressSessionAuth: true,
+    requestChecksumCalculation: 'WHEN_SUPPORTED',
+    responseChecksumValidation: 'WHEN_SUPPORTED',
+    authSchemePreference: [],
+    sigv4aSigningRegionSet: [],
+    userAgentAppId: '',
   });
   return client;
 }
