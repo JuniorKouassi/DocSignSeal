@@ -101,7 +101,7 @@
   padding: 0 var(--dss-space-4);
 }
 
-.surface img {
+.pageImg {
   display: block;
   width: 100%;
   height: auto;
@@ -157,16 +157,41 @@
   cursor: pointer;
 }
 
+/* 28px, not the original 16px -- too small a target to reliably grab with a
+   finger on a phone, which is what "resize doesn't work" mostly turned out
+   to be. One handle per corner now (was bottom-right only), each anchored
+   to the opposite corner -- see handleBoxPointerDown. */
 .resizeHandle {
   position: absolute;
-  right: -7px;
-  bottom: -7px;
-  width: 16px;
-  height: 16px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   background: var(--dss-navy);
-  border: 2px solid var(--dss-paper);
+  border: 3px solid var(--dss-paper);
   touch-action: none;
+}
+
+.handle_nw {
+  left: -14px;
+  top: -14px;
+  cursor: nwse-resize;
+}
+
+.handle_ne {
+  right: -14px;
+  top: -14px;
+  cursor: nesw-resize;
+}
+
+.handle_sw {
+  left: -14px;
+  bottom: -14px;
+  cursor: nesw-resize;
+}
+
+.handle_se {
+  right: -14px;
+  bottom: -14px;
   cursor: nwse-resize;
 }
 

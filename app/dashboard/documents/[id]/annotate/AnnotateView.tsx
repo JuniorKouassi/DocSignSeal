@@ -55,7 +55,11 @@ export function AnnotateView({
   const [placing, startPlacing] = useTransition();
 
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ mode: 'move' | 'resize'; startX: number; startY: number; box: Pending } | null>(null);
+  const dragRef = useRef<
+    | { mode: 'move'; startX: number; startY: number; box: Pending }
+    | { mode: 'resize'; anchorX: number; anchorY: number }
+    | null
+  >(null);
 
   // initialPlaced is only the mount-time snapshot -- router.refresh() re-runs
   // the server component and hands this component a new `placed` prop, but
@@ -120,23 +124,38 @@ export function AnnotateView({
     };
   }
 
-  function handleBoxPointerDown(e: ReactPointerEvent, mode: 'move' | 'resize') {
+  type Corner = 'nw' | 'ne' | 'sw' | 'se';
+
+  function handleBoxPointerDown(e: ReactPointerEvent, target: 'move' | Corner) {
     if (!pending) return;
     e.preventDefault();
     e.stopPropagation();
     (e.target as Element).setPointerCapture(e.pointerId);
-    const start = pointFromEvent(e);
-    dragRef.current = { mode, startX: start.x, startY: start.y, box: pending };
+
+    if (target === 'move') {
+      const start = pointFromEvent(e);
+      dragRef.current = { mode: 'move', startX: start.x, startY: start.y, box: pending };
+      return;
+    }
+
+    // Resize is anchored to the corner opposite the one grabbed (e.g.
+    // dragging the top-left handle keeps the bottom-right corner fixed),
+    // computed once here rather than as a running delta -- that also means
+    // dragging a handle past its anchor just flips the box instead of
+    // going negative/breaking.
+    const anchorX = target === 'nw' || target === 'sw' ? pending.x + pending.w : pending.x;
+    const anchorY = target === 'nw' || target === 'ne' ? pending.y + pending.h : pending.y;
+    dragRef.current = { mode: 'resize', anchorX, anchorY };
   }
 
   function handleSurfacePointerMove(e: ReactPointerEvent) {
     const drag = dragRef.current;
     if (!drag || !pending) return;
     const p = pointFromEvent(e);
-    const dx = p.x - drag.startX;
-    const dy = p.y - drag.startY;
 
     if (drag.mode === 'move') {
+      const dx = p.x - drag.startX;
+      const dy = p.y - drag.startY;
       // No edge clamp beyond keeping most of the box reachable -- a
       // signature in a corner or bleeding slightly off the page is a real
       // layout some documents need, not a mistake to prevent. flatten.mjs
@@ -150,8 +169,10 @@ export function AnnotateView({
     } else {
       setPending({
         ...pending,
-        w: Math.min(100, Math.max(3, drag.box.w + dx)),
-        h: Math.min(100, Math.max(3, drag.box.h + dy)),
+        w: Math.max(3, Math.abs(p.x - drag.anchorX)),
+        h: Math.max(3, Math.abs(p.y - drag.anchorY)),
+        x: Math.min(p.x, drag.anchorX),
+        y: Math.min(p.y, drag.anchorY),
       });
     }
   }
@@ -246,7 +267,7 @@ export function AnnotateView({
         onPointerUp={handleSurfacePointerUp}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- server-rendered PNG, not a static asset */}
-        <img src={`/api/documents/${documentId}/pages/${page}`} alt={`Page ${page}`} />
+        <img className={styles.pageImg} src={`/api/documents/${documentId}/pages/${page}`} alt={`Page ${page}`} />
 
         {placedOnPage.map((a) => (
           <div
@@ -284,10 +305,13 @@ export function AnnotateView({
                 alt=""
               />
             )}
-            <div
-              className={styles.resizeHandle}
-              onPointerDown={(e) => handleBoxPointerDown(e, 'resize')}
-            />
+            {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
+              <div
+                key={corner}
+                className={`${styles.resizeHandle} ${styles[`handle_${corner}`]}`}
+                onPointerDown={(e) => handleBoxPointerDown(e, corner)}
+              />
+            ))}
           </div>
         )}
       </div>
