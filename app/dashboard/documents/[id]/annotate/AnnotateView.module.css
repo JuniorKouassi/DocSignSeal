@@ -101,6 +101,18 @@
   padding: 0 var(--dss-space-4);
 }
 
+/* The actual positioning anchor for .mark/.pendingBox -- NOT .surface.
+   .surface is the scrollable viewport (flex-sized to whatever vertical
+   space is available); a page taller than that scrolls inside it. Marks
+   are percentages of the page image itself, so they have to be positioned
+   relative to a box that's exactly the image's rendered size (this one,
+   an unstyled wrapper that sizes to its only child) -- against .surface's
+   shorter viewport height instead, a mark's percentage y would resolve to
+   the wrong pixel position the moment the page needed to scroll. */
+.pageWrap {
+  position: relative;
+}
+
 .pageImg {
   display: block;
   width: 100%;

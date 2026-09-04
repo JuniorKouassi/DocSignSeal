@@ -55,6 +55,7 @@ export function AnnotateView({
   const [placing, startPlacing] = useTransition();
 
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const pageWrapRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<
     | { mode: 'move'; startX: number; startY: number; box: Pending }
     | { mode: 'resize'; anchorX: number; anchorY: number }
@@ -117,7 +118,15 @@ export function AnnotateView({
   }
 
   function pointFromEvent(e: ReactPointerEvent) {
-    const rect = surfaceRef.current!.getBoundingClientRect();
+    // Against pageWrap, not surface: surface is the scrollable viewport
+    // (flex-sized to whatever vertical space is available), which is
+    // usually shorter than a tall page's actual rendered height. A mark's
+    // x/y/w/h are percentages of the page image itself -- computing them
+    // against the viewport's height instead placed a mark correctly while
+    // dragging, then made it land somewhere else (often below the visible
+    // page entirely) as soon as the page was taller than the viewport and
+    // had to scroll.
+    const rect = pageWrapRef.current!.getBoundingClientRect();
     return {
       x: ((e.clientX - rect.left) / rect.width) * 100,
       y: ((e.clientY - rect.top) / rect.height) * 100,
@@ -266,54 +275,56 @@ export function AnnotateView({
         onPointerMove={handleSurfacePointerMove}
         onPointerUp={handleSurfacePointerUp}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- server-rendered PNG, not a static asset */}
-        <img className={styles.pageImg} src={`/api/documents/${documentId}/pages/${page}`} alt={`Page ${page}`} />
+        <div ref={pageWrapRef} className={styles.pageWrap}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- server-rendered PNG, not a static asset */}
+          <img className={styles.pageImg} src={`/api/documents/${documentId}/pages/${page}`} alt={`Page ${page}`} />
 
-        {placedOnPage.map((a) => (
-          <div
-            key={a.id}
-            className={styles.mark}
-            style={{ left: `${a.x}%`, top: `${a.y}%`, width: `${a.w}%`, height: `${a.h}%` }}
-          >
-            {a.type === 'date' ? (
-              <span className={styles.dateMark}>{a.valueText}</span>
-            ) : (
-              /* eslint-disable-next-line @next/next/no-img-element -- server-decrypted asset, not a static file */
-              <img
-                className={styles.markImg}
-                src={a.type === 'signature' ? `/api/signatures/${a.refId}/image` : `/api/stamps/${a.refId}/image`}
-                alt=""
-              />
-            )}
-            <button type="button" className={styles.removeBtn} onClick={() => handleRemovePlaced(a.id)}>×</button>
-          </div>
-        ))}
+          {placedOnPage.map((a) => (
+            <div
+              key={a.id}
+              className={styles.mark}
+              style={{ left: `${a.x}%`, top: `${a.y}%`, width: `${a.w}%`, height: `${a.h}%` }}
+            >
+              {a.type === 'date' ? (
+                <span className={styles.dateMark}>{a.valueText}</span>
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element -- server-decrypted asset, not a static file */
+                <img
+                  className={styles.markImg}
+                  src={a.type === 'signature' ? `/api/signatures/${a.refId}/image` : `/api/stamps/${a.refId}/image`}
+                  alt=""
+                />
+              )}
+              <button type="button" className={styles.removeBtn} onClick={() => handleRemovePlaced(a.id)}>×</button>
+            </div>
+          ))}
 
-        {pending && (
-          <div
-            className={styles.pendingBox}
-            style={{ left: `${pending.x}%`, top: `${pending.y}%`, width: `${pending.w}%`, height: `${pending.h}%` }}
-            onPointerDown={(e) => handleBoxPointerDown(e, 'move')}
-          >
-            {pending.kind === 'date' ? (
-              <span className={styles.dateMark}>{pending.label}</span>
-            ) : (
-              /* eslint-disable-next-line @next/next/no-img-element -- server-decrypted asset, not a static file */
-              <img
-                className={styles.markImg}
-                src={pending.kind === 'signature' ? `/api/signatures/${pending.refId}/image` : `/api/stamps/${pending.refId}/image`}
-                alt=""
-              />
-            )}
-            {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
-              <div
-                key={corner}
-                className={`${styles.resizeHandle} ${styles[`handle_${corner}`]}`}
-                onPointerDown={(e) => handleBoxPointerDown(e, corner)}
-              />
-            ))}
-          </div>
-        )}
+          {pending && (
+            <div
+              className={styles.pendingBox}
+              style={{ left: `${pending.x}%`, top: `${pending.y}%`, width: `${pending.w}%`, height: `${pending.h}%` }}
+              onPointerDown={(e) => handleBoxPointerDown(e, 'move')}
+            >
+              {pending.kind === 'date' ? (
+                <span className={styles.dateMark}>{pending.label}</span>
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element -- server-decrypted asset, not a static file */
+                <img
+                  className={styles.markImg}
+                  src={pending.kind === 'signature' ? `/api/signatures/${pending.refId}/image` : `/api/stamps/${pending.refId}/image`}
+                  alt=""
+                />
+              )}
+              {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
+                <div
+                  key={corner}
+                  className={`${styles.resizeHandle} ${styles[`handle_${corner}`]}`}
+                  onPointerDown={(e) => handleBoxPointerDown(e, corner)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {pending && (
