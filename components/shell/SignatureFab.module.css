@@ -8,6 +8,9 @@
 
 @media (max-width: 767px) {
   .fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: fixed;
     right: 16px;
     bottom: calc(78px + env(safe-area-inset-bottom, 0px));

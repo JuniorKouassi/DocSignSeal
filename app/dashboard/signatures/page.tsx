@@ -3,6 +3,7 @@ import { listSignatures } from '../../../lib/signatures/queries';
 import { getT } from '../../../lib/i18n/server';
 import { SignatureFab } from '../../../components/shell/SignatureFab';
 import { SignatureMenu } from '../../../components/shell/SignatureMenu';
+import { SignatureCard } from '../../../components/signatures/SignatureCard';
 import styles from './page.module.css';
 
 export default async function SignaturesPage() {
@@ -46,11 +47,7 @@ function SignatureGrid({
   return (
     <div className={styles.grid}>
       {items.map((s) => (
-        <div className={styles.card} key={s.id}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- server-decrypted asset, not a static file */}
-          <img className={styles.thumb} src={`/api/signatures/${s.id}/image`} alt="" />
-          {s.isDefault && <span className={styles.badge}>{defaultLabel}</span>}
-        </div>
+        <SignatureCard key={s.id} id={s.id} isDefault={s.isDefault} defaultLabel={defaultLabel} />
       ))}
     </div>
   );
