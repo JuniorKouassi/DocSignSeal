@@ -1,5 +1,6 @@
 import 'server-only';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { FetchHttpHandler } from '@smithy/fetch-http-handler';
 import { randomUUID } from 'node:crypto';
 
 /* Storage is S3-compatible on purpose: the same client works against
@@ -52,6 +53,17 @@ function getClient(): S3Client {
     authSchemePreference: [],
     sigv4aSigningRegionSet: [],
     userAgentAppId: '',
+    // Separate from the fields above: resolved per-request during SigV4
+    // signing (@aws-sdk/core's AwsSdkSigV4Signer), not at client
+    // construction, but hits the exact same fs-based fallback when unset.
+    disableClockSkewCorrection: false,
+    // The SDK's default Node request handler (@smithy/node-http-handler)
+    // calls Node's http/https modules directly, which Cloudflare Workers
+    // doesn't implement at all ("[unenv] https.request is not implemented
+    // yet!") -- Workers requires the Fetch API for all outbound requests.
+    // FetchHttpHandler is smithy's fetch()-based handler, already a
+    // transitive dependency of @aws-sdk/client-s3.
+    requestHandler: new FetchHttpHandler(),
   });
   return client;
 }
