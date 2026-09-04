@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getCurrentContext } from '../../../../lib/auth/dal';
 import { getTemplate, getTemplateFields } from '../../../../lib/templates/queries';
+import { signAsSelf } from '../../../../lib/documents/actions';
 import FieldBuilder from './FieldBuilder';
 import styles from './page.module.css';
 
@@ -19,6 +20,11 @@ export default async function TemplateDetailPage({ params }: { params: Promise<{
         <h1 className={styles.title}>{template.name}</h1>
         <div className={styles.headerRight}>
           <span className={styles.meta}>{template.pageCount} page{template.pageCount === 1 ? '' : 's'}</span>
+          {template.signerRoles.length === 1 && (
+            <form action={signAsSelf.bind(null, template.id)}>
+              <button type="submit" className={styles.signSelfButton}>Sign yourself</button>
+            </form>
+          )}
           <Link href={`/dashboard/templates/${template.id}/send`} className={styles.sendLink}>Send for signature</Link>
         </div>
       </div>

@@ -136,3 +136,79 @@ export async function sendDocument(documentId: string): Promise<SendDocumentResu
 
   return { ok: true };
 }
+
+/* "Sign yourself": creates the document, issues the one signer's token, and
+   redirects straight into /sign/[token] in the same request -- no send
+   form, no email round-trip. Only valid for a single-signer template: with
+   more than one role, the document genuinely needs someone else's name and
+   email, which this shortcut has no form for. The document still passes
+   through draft -> sent with the same audit events as the normal path
+   (createDocument + sendDocument combined) so its audit trail and status
+   machine look identical to any other document -- nothing downstream
+   (getSigningView, sealDocument, the certificate) needs to know it was
+   self-signed. */
+export async function signAsSelf(templateId: string) {
+  const { user, organization } = await getCurrentContext();
+
+  const template = await getTemplate(templateId, organization.id);
+  if (!template) throw new Error('Template not found.');
+  if (template.signerRoles.length !== 1) {
+    throw new Error('"Sign yourself" only works for a template with a single signer role.');
+  }
+
+  const templateFieldRows = await getTemplateFields(templateId);
+  const role = template.signerRoles[0];
+
+  const { documentId, signerId } = await db.transaction(async (tx) => {
+    const [document] = await tx.insert(documents).values({
+      organizationId: organization.id,
+      templateId: template.id,
+      createdBy: user.id,
+      title: template.name,
+      sourceFileId: template.fileId,
+      routing: 'sequential',
+      status: 'draft',
+      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    }).returning({ id: documents.id });
+
+    const [signer] = await tx.insert(documentSigners).values({
+      documentId: document.id,
+      orderIndex: role.index,
+      name: user.name,
+      email: user.email,
+      roleLabel: role.label,
+      status: 'pending',
+    }).returning({ id: documentSigners.id });
+
+    if (templateFieldRows.length) {
+      await tx.insert(documentFields).values(templateFieldRows.map((f) => ({
+        documentId: document.id,
+        signerId: signer.id,
+        page: f.page,
+        x: f.x,
+        y: f.y,
+        w: f.w,
+        h: f.h,
+        type: f.type,
+        required: f.required,
+        meta: f.meta,
+        sortOrder: f.sortOrder,
+      })));
+    }
+
+    return { documentId: document.id, signerId: signer.id };
+  });
+
+  await appendAuditEvent({ document_id: documentId, event: 'document.created', actor: user.email });
+
+  const { token_hash, raw } = issueToken();
+  await db.transaction(async (tx) => {
+    await tx.update(documentSigners).set({ tokenHash: token_hash }).where(eq(documentSigners.id, signerId));
+    await tx.update(documents).set({ status: 'sent' }).where(eq(documents.id, documentId));
+  });
+
+  await appendAuditEvent({ document_id: documentId, event: 'document.sent', actor: user.email });
+  await appendAuditEvent({ document_id: documentId, signer_id: signerId, event: 'signer.link_issued', actor: 'system' });
+
+  redirect(`/sign/${raw}`);
+}

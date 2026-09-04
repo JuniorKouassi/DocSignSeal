@@ -40,3 +40,20 @@
 .sendLink:hover {
   background: var(--dss-navy-hover);
 }
+
+.signSelfButton {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-radius: var(--dss-radius);
+  background: none;
+  border: 1px solid var(--dss-line-strong);
+  color: var(--dss-navy);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.signSelfButton:hover {
+  background: var(--dss-tint);
+}
