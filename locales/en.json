@@ -54,5 +54,7 @@
   "italic": "Italic",
   "draw_placeholder": "Draw your signature here",
   "no_sigs": "No signatures yet.",
-  "sig_error": "Something went wrong. Try again."
+  "sig_error": "Something went wrong. Try again.",
+  "upload_sign": "Upload & sign",
+  "multi_signer_doc": "Multi-signer document"
 }

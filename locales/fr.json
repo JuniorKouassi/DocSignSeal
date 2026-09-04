@@ -54,5 +54,7 @@
   "italic": "Italique",
   "draw_placeholder": "Dessinez votre signature ici",
   "no_sigs": "Aucune signature pour l'instant.",
-  "sig_error": "Une erreur est survenue. Réessayez."
+  "sig_error": "Une erreur est survenue. Réessayez.",
+  "upload_sign": "Importer et signer",
+  "multi_signer_doc": "Document à plusieurs signataires"
 }

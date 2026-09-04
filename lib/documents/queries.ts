@@ -1,12 +1,25 @@
 import 'server-only';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, ne } from 'drizzle-orm';
 import { db } from '../db/client';
 import { annotations, documentFields, documents, documentSigners } from '../db/schema';
 
+/* Documents is the working list: everything not yet completed (draft, sent,
+   in_progress, declined, voided, expired). Once a document reaches
+   'completed' it moves to the Templates tab's register instead -- see
+   listCompletedDocuments. */
 export async function listDocuments(organizationId: string) {
   return db.select().from(documents)
-    .where(eq(documents.organizationId, organizationId))
+    .where(and(eq(documents.organizationId, organizationId), ne(documents.status, 'completed')))
     .orderBy(desc(documents.createdAt));
+}
+
+/* Everything that's reached 'completed' -- what the Templates tab now
+   shows: a register of finished, sealed documents, not the reusable
+   field-layout list it used to be. */
+export async function listCompletedDocuments(organizationId: string) {
+  return db.select().from(documents)
+    .where(and(eq(documents.organizationId, organizationId), eq(documents.status, 'completed')))
+    .orderBy(desc(documents.completedAt));
 }
 
 export async function getDocument(documentId: string, organizationId: string) {

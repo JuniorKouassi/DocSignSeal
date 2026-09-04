@@ -1,0 +1,71 @@
+.card {
+  max-width: 480px;
+  background: var(--dss-paper);
+  border: 1px solid var(--dss-line);
+  border-radius: var(--dss-radius-lg);
+  padding: var(--dss-space-5);
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--dss-text);
+}
+
+.hint {
+  font-size: 13px;
+  color: var(--dss-text-muted);
+  margin: 0 0 var(--dss-space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--dss-space-4);
+}
+
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dss-text-muted);
+}
+
+.field input[type='text'],
+.field input[type='file'] {
+  font-size: 15px;
+  padding: 10px 12px;
+  border-radius: var(--dss-radius);
+  border: 1px solid var(--dss-line-strong);
+  background: var(--dss-paper);
+  color: var(--dss-text);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--dss-declined-fg);
+  margin: 2px 0 0;
+}
+
+.submit {
+  width: 100%;
+  margin-top: var(--dss-space-2);
+  padding: 11px;
+  border: none;
+  border-radius: var(--dss-radius);
+  background: var(--dss-navy);
+  color: var(--dss-text-invert);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:hover {
+  background: var(--dss-navy-hover);
+}
+
+.submit:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

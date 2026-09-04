@@ -4,7 +4,7 @@ import { flatten } from '../../src/flatten.mjs';
 import { sealDocument } from '../../src/audit.mjs';
 import { toAnnotation } from '../../src/document-fields.mjs';
 import { db } from '../db/client';
-import { annotations, documents, documentFields, documentSigners, stamps } from '../db/schema';
+import { annotations, documents, documentFields, documentSigners, signatures, stamps } from '../db/schema';
 import { readFileBytes, storeFile } from '../files/store';
 import { appendAuditEvent, getDocumentAuditEvents, verifyDocumentChain } from '../audit/store';
 
@@ -27,23 +27,41 @@ export async function completeDocumentIfAllSigned(documentId: string) {
     .map(toAnnotation)
     .filter((a): a is NonNullable<ReturnType<typeof toAnnotation>> => a !== null);
 
-  // Org-placed stamps (build step 7). Each references a stamp, which in turn
-  // references the actual PNG file flatten.mjs needs bytes for.
-  const stampRows = await db.select().from(annotations)
-    .where(and(eq(annotations.documentId, documentId), eq(annotations.type, 'stamp')));
+  // Freely-placed marks (build step 7's stamps, plus signatures and dates
+  // placed via the "sign it ourselves" annotate view) -- unlike
+  // document_fields, no placeholder existed in advance for any of these.
+  // Stamps and signatures both reference an asset (a stamp's or a personal
+  // signature's PNG); dates carry their text directly on the row.
+  const placedRows = await db.select().from(annotations)
+    .where(and(eq(annotations.documentId, documentId), inArray(annotations.type, ['stamp', 'signature', 'date'])));
 
   const assets: Record<string, Uint8Array> = {};
-  const stampAnnotations = [];
-  for (const row of stampRows) {
-    if (!row.refId) continue;
-    const stamp = (await db.select().from(stamps).where(eq(stamps.id, row.refId)).limit(1))[0];
-    if (!stamp) continue;
-    if (!(stamp.fileId in assets)) {
-      assets[stamp.fileId] = await readFileBytes(stamp.fileId, doc.organizationId);
+  const placedAnnotations = [];
+  for (const row of placedRows) {
+    if (row.type === 'date') {
+      placedAnnotations.push({
+        type: 'date',
+        value_text: row.valueText,
+        page: row.page,
+        x: row.x, y: row.y, w: row.w, h: row.h,
+        rotation: row.rotation,
+        z_index: row.zIndex,
+        applied_to_all_pages: row.appliedToAllPages,
+      });
+      continue;
     }
-    stampAnnotations.push({
-      type: 'stamp',
-      ref_file_id: stamp.fileId,
+
+    if (!row.refId) continue;
+    const asset = row.type === 'stamp'
+      ? (await db.select().from(stamps).where(eq(stamps.id, row.refId)).limit(1))[0]
+      : (await db.select().from(signatures).where(eq(signatures.id, row.refId)).limit(1))[0];
+    if (!asset) continue;
+    if (!(asset.fileId in assets)) {
+      assets[asset.fileId] = await readFileBytes(asset.fileId, doc.organizationId);
+    }
+    placedAnnotations.push({
+      type: row.type,
+      ref_file_id: asset.fileId,
       page: row.page,
       x: row.x, y: row.y, w: row.w, h: row.h,
       rotation: row.rotation,
@@ -52,7 +70,7 @@ export async function completeDocumentIfAllSigned(documentId: string) {
     });
   }
 
-  const allAnnotations = [...fieldAnnotations, ...stampAnnotations];
+  const allAnnotations = [...fieldAnnotations, ...placedAnnotations];
 
   const sourceBytes = await readFileBytes(doc.sourceFileId, doc.organizationId);
   const events = await getDocumentAuditEvents(documentId);

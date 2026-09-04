@@ -12,6 +12,12 @@
   color: var(--dss-text);
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--dss-space-2);
+}
+
 .newLink {
   display: inline-flex;
   align-items: center;
@@ -26,6 +32,23 @@
 
 .newLink:hover {
   background: var(--dss-navy-hover);
+}
+
+.uploadSignLink {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 15px;
+  border-radius: var(--dss-radius);
+  background: none;
+  border: 1px solid var(--dss-line-strong);
+  color: var(--dss-navy);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.uploadSignLink:hover {
+  background: var(--dss-tint);
 }
 
 .empty {

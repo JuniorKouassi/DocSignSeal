@@ -14,11 +14,10 @@ export type DocItem = {
   createdAt: Date;
 };
 
-type ChipGroup = 'waiting' | 'signed' | 'draft';
+type ChipGroup = 'waiting' | 'draft';
 
 const CHIPS: { group: ChipGroup; labelKey: string }[] = [
   { group: 'waiting', labelKey: 'waiting' },
-  { group: 'signed', labelKey: 'f_done' },
   { group: 'draft', labelKey: 'f_draft' },
 ];
 
@@ -28,12 +27,15 @@ const CHIPS: { group: ChipGroup; labelKey: string }[] = [
    client-side over the already-fetched list: lib/documents/queries.ts's
    listDocuments() has no filter param and this app has no pagination
    anywhere yet, so there's no volume concern that would call for a new
-   query parameter instead. "Declined" documents aren't one of the 3 chips
+   query parameter instead. "Declined" documents aren't one of the chips
    (there's no data distinguishing "waiting on you" vs "on others" for
    internal org users, unlike the design mockup's external-signer framing)
    -- they always show in the "Earlier" section below, matching how the
    mockup treats terminal-status documents as separate from the active
-   chip-filtered set. */
+   chip-filtered set. No "Completed" chip: listDocuments() already excludes
+   completed documents entirely (they move to the Templates register), so a
+   filter for a status that can never appear here would just be a dead
+   button -- the link to that register replaces it instead. */
 export function DocumentsList({ items }: { items: DocItem[] }) {
   const t = useT();
   const [active, setActive] = useState<ChipGroup>('waiting');
@@ -55,6 +57,7 @@ export function DocumentsList({ items }: { items: DocItem[] }) {
             {t(c.labelKey)}
           </button>
         ))}
+        <Link href="/dashboard/templates" className={styles.seg}>{t('f_done')}</Link>
       </div>
 
       {activeItems.length === 0 ? (

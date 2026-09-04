@@ -12,22 +12,6 @@
   color: var(--dss-text);
 }
 
-.newLink {
-  display: inline-flex;
-  align-items: center;
-  padding: 9px 16px;
-  border-radius: var(--dss-radius);
-  background: var(--dss-navy);
-  color: var(--dss-text-invert);
-  font-size: 14px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.newLink:hover {
-  background: var(--dss-navy-hover);
-}
-
 .empty {
   color: var(--dss-text-muted);
   font-size: 14px;
