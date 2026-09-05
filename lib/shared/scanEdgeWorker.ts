@@ -24,10 +24,33 @@ const REQUEST_TIMEOUT_MS = 4000;
 
 type PendingEntry = { resolve: (points: Point[] | null) => void };
 
+// Whether OpenCV ever actually finished loading in the worker, distinct
+// from "loaded fine but this frame didn't match" -- lets the UI tell a
+// genuine failure (worker/network/CSP blocked, or opencv.js itself erroring)
+// apart from ordinary per-frame misses, which are normal and expected to
+// happen constantly against a real handheld camera.
+export type OpenCvStatus = 'loading' | 'ready' | 'failed';
+
 let worker: Worker | null = null;
 let workerFailed = false;
 let nextId = 0;
 const pending = new Map<number, PendingEntry>();
+
+let openCvStatus: OpenCvStatus = 'loading';
+const statusListeners = new Set<(status: OpenCvStatus) => void>();
+
+function setOpenCvStatus(status: OpenCvStatus) {
+  openCvStatus = status;
+  statusListeners.forEach((cb) => cb(status));
+}
+
+// Subscribes to OpenCV's load status; calls back immediately with the
+// current value, then again on every change. Returns an unsubscribe fn.
+export function onOpenCvStatus(cb: (status: OpenCvStatus) => void): () => void {
+  statusListeners.add(cb);
+  cb(openCvStatus);
+  return () => statusListeners.delete(cb);
+}
 
 function getWorker(): Worker | null {
   if (workerFailed) return null;
@@ -36,9 +59,14 @@ function getWorker(): Worker | null {
     worker = new Worker(WORKER_URL);
   } catch {
     workerFailed = true;
+    setOpenCvStatus('failed');
     return null;
   }
-  worker.onmessage = (e: MessageEvent<{ id: number; corners: Point[] | null }>) => {
+  worker.onmessage = (e: MessageEvent<{ id: number; corners: Point[] | null } | { status: 'ready' | 'failed'; error?: string }>) => {
+    if ('status' in e.data) {
+      setOpenCvStatus(e.data.status);
+      return;
+    }
     const { id, corners } = e.data;
     const entry = pending.get(id);
     if (!entry) return;
@@ -51,6 +79,7 @@ function getWorker(): Worker | null {
     // message) -- resolve every in-flight request rather than hang them.
     pending.forEach((entry) => entry.resolve(null));
     pending.clear();
+    setOpenCvStatus('failed');
   };
   return worker;
 }

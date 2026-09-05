@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { detectEdgesOffThread, preloadOpenCv } from '../../lib/shared/scanEdgeWorker';
+import { detectEdgesOffThread, onOpenCvStatus, preloadOpenCv, type OpenCvStatus } from '../../lib/shared/scanEdgeWorker';
 import { warpToRect, averageEdgeSize, type Point } from '../../lib/shared/perspectiveWarp';
 import styles from './ScanCaptureModal.module.css';
 
@@ -31,6 +31,7 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [confirming, setConfirming] = useState(false);
   const [liveDetected, setLiveDetected] = useState(false); // drives the "Looking for a document..." / "Document found" label
+  const [cvStatus, setCvStatus] = useState<OpenCvStatus>('loading');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLCanvasElement>(null); // still frame / loaded image, drawn at natural size
@@ -121,6 +122,8 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => onOpenCvStatus(setCvStatus), []);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -330,10 +333,17 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
             so no exception surfaced either). */}
         <div className={styles.videoWrap} hidden={phase !== 'live'}>
           <video ref={videoRef} className={styles.video} playsInline muted />
-          {phase === 'live' && (
+          {phase === 'live' && cvStatus !== 'failed' && (
             <p className={liveDetected ? styles.detectHintFound : styles.detectHint}>
-              {liveDetected ? 'Document found' : 'Looking for a document…'}
+              {cvStatus === 'loading'
+                ? 'Starting document detector…'
+                : liveDetected
+                  ? 'Document found'
+                  : 'Looking for a document…'}
             </p>
+          )}
+          {phase === 'live' && cvStatus === 'failed' && (
+            <p className={styles.detectHint}>Auto-detect unavailable on this browser — drag the corners after capturing</p>
           )}
           <canvas id="scan-overlay" className={styles.overlay} />
         </div>

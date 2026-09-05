@@ -16,6 +16,15 @@ const OPENCV_SRC = 'https://docs.opencv.org/4.x/opencv.js';
 
 let cvReady = null;
 
+// Reports whether OpenCV ever actually finished loading, distinct from
+// "loaded but this particular frame didn't match" -- without this the main
+// thread has no way to tell a worker/CSP/network failure (permanently
+// stuck) apart from ordinary per-frame detection misses (normal, expected
+// to happen constantly on a real handheld camera).
+function announceStatus(status, error) {
+  self.postMessage({ status, error });
+}
+
 function loadCv() {
   if (cvReady) return cvReady;
   cvReady = new Promise((resolve, reject) => {
@@ -36,6 +45,10 @@ function loadCv() {
     }
     cv.onRuntimeInitialized = () => resolve(cv);
   });
+  cvReady.then(
+    () => announceStatus('ready'),
+    (err) => announceStatus('failed', err instanceof Error ? err.message : String(err))
+  );
   // A failed load shouldn't be replayed forever on every future frame --
   // clear the cache so the next message tries importScripts again fresh.
   cvReady.catch(() => {
