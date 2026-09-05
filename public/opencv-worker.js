@@ -12,7 +12,13 @@
    after it, lands on a background thread and can never block a paint or an
    input event on the main thread, no matter how slow it is. */
 
-const OPENCV_SRC = 'https://docs.opencv.org/4.x/opencv.js';
+const OPENCV_BASE = 'https://docs.opencv.org/4.x/';
+const OPENCV_SRC = OPENCV_BASE + 'opencv.js';
+
+// Bounded so a load that genuinely never settles (see locateFile note
+// below -- if this guess is ever wrong on some future build) reports as a
+// clear failure instead of leaving the UI stuck on "Starting..." forever.
+const LOAD_TIMEOUT_MS = 15000;
 
 let cvReady = null;
 
@@ -28,22 +34,45 @@ function announceStatus(status, error) {
 function loadCv() {
   if (cvReady) return cvReady;
   cvReady = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Timed out loading the document-scanning library.')), LOAD_TIMEOUT_MS);
+
+    // Emscripten's glue code normally finds its companion .wasm binary via
+    // document.currentScript's URL -- which doesn't exist in a Worker (no
+    // `document` at all). Without this, it silently resolves the wrong
+    // (relative-to-this-worker) URL, the .wasm fetch 404s deep inside
+    // emscripten's own init chain, and neither onRuntimeInitialized nor any
+    // error we can see ever fires -- the load just hangs forever. Predefining
+    // `Module.locateFile` before importScripts is the documented fix for
+    // running opencv.js in a worker: it tells emscripten exactly where the
+    // .wasm file actually lives, regardless of the worker's own location.
+    self.Module = {
+      locateFile(path) {
+        return path.endsWith('.wasm') ? OPENCV_BASE + path : path;
+      },
+    };
+
     try {
       importScripts(OPENCV_SRC);
     } catch (err) {
+      clearTimeout(timer);
       reject(err instanceof Error ? err : new Error(String(err)));
       return;
     }
     const cv = self.cv;
     if (!cv) {
+      clearTimeout(timer);
       reject(new Error('opencv failed to attach to worker scope'));
       return;
     }
     if (cv.Mat) {
+      clearTimeout(timer);
       resolve(cv);
       return;
     }
-    cv.onRuntimeInitialized = () => resolve(cv);
+    cv.onRuntimeInitialized = () => {
+      clearTimeout(timer);
+      resolve(cv);
+    };
   });
   cvReady.then(
     () => announceStatus('ready'),
