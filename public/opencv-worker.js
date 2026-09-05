@@ -12,7 +12,13 @@
    after it, lands on a background thread and can never block a paint or an
    input event on the main thread, no matter how slow it is. */
 
-const OPENCV_BASE = 'https://docs.opencv.org/4.x/';
+// Pinned to a resolved version, not the "4.x" evergreen alias -- that alias
+// currently 301-redirects to this same version, and importScripts() inside
+// a Worker following a cross-path redirect for a ~10MB resource is exactly
+// the kind of thing that behaves inconsistently across mobile browsers.
+// Loading the final URL directly removes that variable entirely. Bump this
+// by hand if OpenCV.js ever needs updating.
+const OPENCV_BASE = 'https://docs.opencv.org/4.13.0/';
 const OPENCV_SRC = OPENCV_BASE + 'opencv.js';
 
 // Bounded so a load that genuinely never settles (see locateFile note
@@ -34,45 +40,64 @@ function announceStatus(status, error) {
 function loadCv() {
   if (cvReady) return cvReady;
   cvReady = new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Timed out loading the document-scanning library.')), LOAD_TIMEOUT_MS);
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error('Timed out loading the document-scanning library.'));
+    }, LOAD_TIMEOUT_MS);
 
-    // Emscripten's glue code normally finds its companion .wasm binary via
-    // document.currentScript's URL -- which doesn't exist in a Worker (no
-    // `document` at all). Without this, it silently resolves the wrong
-    // (relative-to-this-worker) URL, the .wasm fetch 404s deep inside
-    // emscripten's own init chain, and neither onRuntimeInitialized nor any
-    // error we can see ever fires -- the load just hangs forever. Predefining
-    // `Module.locateFile` before importScripts is the documented fix for
-    // running opencv.js in a worker: it tells emscripten exactly where the
-    // .wasm file actually lives, regardless of the worker's own location.
+    function settleResolve(cv) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(cv);
+    }
+    function settleReject(err) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err instanceof Error ? err : new Error(String(err)));
+    }
+
+    // This build (opencv.org's "4.x" alias currently resolves to 4.13.0)
+    // embeds its wasm binary inline as a base64 data: URI in the .js file
+    // itself -- locateFile is never even called, there's no separate binary
+    // fetch to redirect. The actual failure mode inside a Worker is
+    // emscripten's onAbort: instantiating a many-MB wasm module can abort
+    // (e.g. hitting a lower memory ceiling than the main thread gets on some
+    // mobile browsers) without ever throwing somewhere our try/catch can see
+    // or calling onRuntimeInitialized -- it just silently never settles.
+    // Wiring onAbort is the only way to catch that and fail loudly instead
+    // of hanging on "Starting document detector..." forever.
     self.Module = {
       locateFile(path) {
         return path.endsWith('.wasm') ? OPENCV_BASE + path : path;
+      },
+      onAbort(what) {
+        settleReject(new Error('OpenCV aborted: ' + what));
+      },
+      onRuntimeInitialized() {
+        settleResolve(self.cv || self.Module);
       },
     };
 
     try {
       importScripts(OPENCV_SRC);
     } catch (err) {
-      clearTimeout(timer);
-      reject(err instanceof Error ? err : new Error(String(err)));
+      settleReject(err);
       return;
     }
     const cv = self.cv;
     if (!cv) {
-      clearTimeout(timer);
-      reject(new Error('opencv failed to attach to worker scope'));
+      settleReject(new Error('opencv failed to attach to worker scope'));
       return;
     }
     if (cv.Mat) {
-      clearTimeout(timer);
-      resolve(cv);
+      settleResolve(cv);
       return;
     }
-    cv.onRuntimeInitialized = () => {
-      clearTimeout(timer);
-      resolve(cv);
-    };
+    cv.onRuntimeInitialized = () => settleResolve(cv);
   });
   cvReady.then(
     () => announceStatus('ready'),
