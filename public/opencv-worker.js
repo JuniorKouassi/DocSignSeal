@@ -12,19 +12,22 @@
    after it, lands on a background thread and can never block a paint or an
    input event on the main thread, no matter how slow it is. */
 
-// Pinned to a resolved version, not the "4.x" evergreen alias -- that alias
-// currently 301-redirects to this same version, and importScripts() inside
-// a Worker following a cross-path redirect for a ~10MB resource is exactly
-// the kind of thing that behaves inconsistently across mobile browsers.
-// Loading the final URL directly removes that variable entirely. Bump this
-// by hand if OpenCV.js ever needs updating.
-const OPENCV_BASE = 'https://docs.opencv.org/4.13.0/';
-const OPENCV_SRC = OPENCV_BASE + 'opencv.js';
+// Fetched through our own /api/opencv proxy (app/api/opencv/route.ts), not
+// directly from docs.opencv.org: that origin sends no
+// Access-Control-Allow-Origin header, so a cross-origin fetch() from here
+// would be blocked outright by the browser before ever reaching the network
+// -- fetch() enforces CORS even though importScripts() doesn't. Routing
+// through our own origin (a plain server-side fetch there, unaffected by
+// browser CORS) is what makes fetch() -- and therefore a real, enforceable
+// AbortController timeout -- usable here at all. See that route for which
+// upstream OpenCV.js version this proxies.
+const OPENCV_BASE = 'https://docs.opencv.org/4.13.0/'; // locateFile fallback only; the wasm binary is inline, so this rarely if ever matters
+const OPENCV_SRC = '/api/opencv';
 
-// Bounded so a load that genuinely never settles (see locateFile note
-// below -- if this guess is ever wrong on some future build) reports as a
-// clear failure instead of leaving the UI stuck on "Starting..." forever.
-const LOAD_TIMEOUT_MS = 15000;
+// Bounded so a load that genuinely never settles reports as a clear failure
+// instead of leaving the UI stuck on "Starting..." forever.
+const FETCH_TIMEOUT_MS = 20000;
+const INIT_TIMEOUT_MS = 15000;
 
 let cvReady = null;
 
@@ -39,37 +42,70 @@ function announceStatus(status, error) {
 
 function loadCv() {
   if (cvReady) return cvReady;
-  cvReady = new Promise((resolve, reject) => {
+  cvReady = fetchAndInitCv();
+  cvReady.then(
+    () => announceStatus('ready'),
+    (err) => announceStatus('failed', err instanceof Error ? err.message : String(err))
+  );
+  // A failed load shouldn't be replayed forever on every future frame --
+  // clear the cache so the next message tries fetching again fresh.
+  cvReady.catch(() => {
+    cvReady = null;
+  });
+  return cvReady;
+}
+
+async function fetchAndInitCv() {
+  // importScripts() blocks the ENTIRE worker thread synchronously until the
+  // fetch it does internally completes -- nothing else on this single
+  // thread, including our own setTimeout safety nets, can run until it
+  // returns. That's exactly why a "15s timeout" never actually fired even
+  // after minutes stuck on "Starting document detector...": the timer was
+  // powerless while importScripts was still blocked on a slow/stalled
+  // mobile network download of this ~10MB file. Fetching it ourselves with
+  // an AbortController gives an enforceable timeout that works no matter
+  // how long or stuck the network request is.
+  const controller = new AbortController();
+  const fetchTimer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  let scriptText;
+  try {
+    const res = await fetch(OPENCV_SRC, { signal: controller.signal });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    scriptText = await res.text();
+  } catch (err) {
+    throw new Error('Could not download the document-scanning library: ' + (err instanceof Error ? err.message : String(err)));
+  } finally {
+    clearTimeout(fetchTimer);
+  }
+
+  return new Promise((resolve, reject) => {
     let settled = false;
-    const timer = setTimeout(() => {
+    const initTimer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      reject(new Error('Timed out loading the document-scanning library.'));
-    }, LOAD_TIMEOUT_MS);
+      reject(new Error('Timed out initializing the document-scanning library.'));
+    }, INIT_TIMEOUT_MS);
 
     function settleResolve(cv) {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      clearTimeout(initTimer);
       resolve(cv);
     }
     function settleReject(err) {
       if (settled) return;
       settled = true;
-      clearTimeout(timer);
+      clearTimeout(initTimer);
       reject(err instanceof Error ? err : new Error(String(err)));
     }
 
-    // This build (opencv.org's "4.x" alias currently resolves to 4.13.0)
-    // embeds its wasm binary inline as a base64 data: URI in the .js file
-    // itself -- locateFile is never even called, there's no separate binary
-    // fetch to redirect. The actual failure mode inside a Worker is
-    // emscripten's onAbort: instantiating a many-MB wasm module can abort
-    // (e.g. hitting a lower memory ceiling than the main thread gets on some
-    // mobile browsers) without ever throwing somewhere our try/catch can see
-    // or calling onRuntimeInitialized -- it just silently never settles.
-    // Wiring onAbort is the only way to catch that and fail loudly instead
-    // of hanging on "Starting document detector..." forever.
+    // This build embeds its wasm binary inline as a base64 data: URI in the
+    // .js text itself -- locateFile is never even called, there's no
+    // separate binary fetch to redirect, but it's harmless to leave wired.
+    // onAbort matters more: instantiating a many-MB wasm module can abort
+    // (e.g. a lower memory ceiling than the main thread gets on some mobile
+    // browsers) without throwing anywhere catchable or ever calling
+    // onRuntimeInitialized -- nothing was listening for that before.
     self.Module = {
       locateFile(path) {
         return path.endsWith('.wasm') ? OPENCV_BASE + path : path;
@@ -83,7 +119,12 @@ function loadCv() {
     };
 
     try {
-      importScripts(OPENCV_SRC);
+      // Running the already-downloaded source directly (indirect eval, so it
+      // executes in global scope like a real script would) instead of
+      // importScripts(): the whole point here is to never again hand a
+      // synchronous, unboundable network fetch to code we can't put a
+      // timeout around.
+      (0, eval)(scriptText);
     } catch (err) {
       settleReject(err);
       return;
@@ -99,16 +140,6 @@ function loadCv() {
     }
     cv.onRuntimeInitialized = () => settleResolve(cv);
   });
-  cvReady.then(
-    () => announceStatus('ready'),
-    (err) => announceStatus('failed', err instanceof Error ? err.message : String(err))
-  );
-  // A failed load shouldn't be replayed forever on every future frame --
-  // clear the cache so the next message tries importScripts again fresh.
-  cvReady.catch(() => {
-    cvReady = null;
-  });
-  return cvReady;
 }
 
 // Same pipeline as lib/shared/detectDocumentEdges.ts: grayscale -> blur ->
