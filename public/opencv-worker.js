@@ -36,8 +36,8 @@ let cvReady = null;
 // thread has no way to tell a worker/CSP/network failure (permanently
 // stuck) apart from ordinary per-frame detection misses (normal, expected
 // to happen constantly on a real handheld camera).
-function announceStatus(status, error) {
-  self.postMessage({ status, error });
+function announceStatus(status, error, detail) {
+  self.postMessage({ status, error, detail });
 }
 
 function loadCv() {
@@ -69,9 +69,41 @@ async function fetchAndInitCv() {
   const fetchTimer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   let scriptText;
   try {
+    announceStatus('loading', undefined, 'connecting');
     const res = await fetch(OPENCV_SRC, { signal: controller.signal });
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    scriptText = await res.text();
+
+    // Reading via a streamed reader (tracking real bytes against
+    // Content-Length) instead of a plain res.text() -- this is the only way
+    // to tell "still genuinely downloading, X% done" apart from "download
+    // finished ages ago, something after it is what's actually stuck",
+    // which otherwise look identical from the outside (no visible change
+    // either way) for as long as either one lasts.
+    const total = Number(res.headers.get('content-length')) || 0;
+    const reader = res.body ? res.body.getReader() : null;
+    if (reader) {
+      const chunks = [];
+      let received = 0;
+      let lastReportedPct = -1;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total > 0) {
+          const pct = Math.floor((received / total) * 100);
+          if (pct !== lastReportedPct) {
+            lastReportedPct = pct;
+            announceStatus('loading', undefined, 'downloading ' + pct + '%');
+          }
+        }
+      }
+      announceStatus('loading', undefined, 'decoding');
+      const blob = new Blob(chunks);
+      scriptText = await blob.text();
+    } else {
+      scriptText = await res.text();
+    }
   } catch (err) {
     throw new Error('Could not download the document-scanning library: ' + (err instanceof Error ? err.message : String(err)));
   } finally {
@@ -119,12 +151,14 @@ async function fetchAndInitCv() {
     };
 
     try {
+      announceStatus('loading', undefined, 'starting engine');
       // Running the already-downloaded source directly (indirect eval, so it
       // executes in global scope like a real script would) instead of
       // importScripts(): the whole point here is to never again hand a
       // synchronous, unboundable network fetch to code we can't put a
       // timeout around.
       (0, eval)(scriptText);
+      announceStatus('loading', undefined, 'waiting for engine');
     } catch (err) {
       settleReject(err);
       return;

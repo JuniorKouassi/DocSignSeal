@@ -37,18 +37,24 @@ let nextId = 0;
 const pending = new Map<number, PendingEntry>();
 
 let openCvStatus: OpenCvStatus = 'loading';
-const statusListeners = new Set<(status: OpenCvStatus) => void>();
+// Free-text sub-stage while status is 'loading' (e.g. "downloading 42%",
+// "waiting for engine") -- exists purely so a stuck load can be diagnosed
+// (which stage it's stuck at) instead of just staring at one static label
+// for however long it takes to time out.
+let openCvDetail = '';
+const statusListeners = new Set<(status: OpenCvStatus, detail: string) => void>();
 
-function setOpenCvStatus(status: OpenCvStatus) {
+function setOpenCvStatus(status: OpenCvStatus, detail = '') {
   openCvStatus = status;
-  statusListeners.forEach((cb) => cb(status));
+  openCvDetail = detail;
+  statusListeners.forEach((cb) => cb(status, detail));
 }
 
 // Subscribes to OpenCV's load status; calls back immediately with the
 // current value, then again on every change. Returns an unsubscribe fn.
-export function onOpenCvStatus(cb: (status: OpenCvStatus) => void): () => void {
+export function onOpenCvStatus(cb: (status: OpenCvStatus, detail: string) => void): () => void {
   statusListeners.add(cb);
-  cb(openCvStatus);
+  cb(openCvStatus, openCvDetail);
   return () => statusListeners.delete(cb);
 }
 
@@ -62,9 +68,9 @@ function getWorker(): Worker | null {
     setOpenCvStatus('failed');
     return null;
   }
-  worker.onmessage = (e: MessageEvent<{ id: number; corners: Point[] | null } | { status: 'ready' | 'failed'; error?: string }>) => {
+  worker.onmessage = (e: MessageEvent<{ id: number; corners: Point[] | null } | { status: OpenCvStatus; error?: string; detail?: string }>) => {
     if ('status' in e.data) {
-      setOpenCvStatus(e.data.status);
+      setOpenCvStatus(e.data.status, e.data.detail ?? e.data.error ?? '');
       return;
     }
     const { id, corners } = e.data;

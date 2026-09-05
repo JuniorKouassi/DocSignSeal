@@ -32,6 +32,7 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
   const [confirming, setConfirming] = useState(false);
   const [liveDetected, setLiveDetected] = useState(false); // drives the "Looking for a document..." / "Document found" label
   const [cvStatus, setCvStatus] = useState<OpenCvStatus>('loading');
+  const [cvDetail, setCvDetail] = useState(''); // sub-stage while cvStatus === 'loading', e.g. "downloading 42%"
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLCanvasElement>(null); // still frame / loaded image, drawn at natural size
@@ -123,7 +124,10 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => onOpenCvStatus(setCvStatus), []);
+  useEffect(() => onOpenCvStatus((status, detail) => {
+    setCvStatus(status);
+    setCvDetail(detail);
+  }), []);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -336,7 +340,7 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
           {phase === 'live' && cvStatus !== 'failed' && (
             <p className={liveDetected ? styles.detectHintFound : styles.detectHint}>
               {cvStatus === 'loading'
-                ? 'Starting document detector…'
+                ? `Starting document detector${cvDetail ? ` (${cvDetail})` : '…'}`
                 : liveDetected
                   ? 'Document found'
                   : 'Looking for a document…'}
