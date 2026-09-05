@@ -4,28 +4,30 @@ import { useActionState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadStamp } from '../../../lib/stamps/actions';
 import { pngBlobFromImageFile } from '../../../lib/shared/imageToPng';
+import { useScanCapture } from '../../../components/scan/useScanCapture';
 import styles from './page.module.css';
 
 export default function UploadStampForm() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const scanInputRef = useRef<HTMLInputElement>(null);
+  const { scanCamera, modal } = useScanCapture();
   const [state, action, pending] = useActionState(async (prevState: Awaited<ReturnType<typeof uploadStamp>>, formData: FormData) => {
     const result = await uploadStamp(prevState, formData);
     if (!result?.errors) router.refresh();
     return result;
   }, undefined);
 
-  // "Scan with camera" writes into the same visible file input via
-  // DataTransfer rather than tracking its own state -- handleSubmit below
-  // already reads whatever's in that input, so a physical stamp photographed
-  // here goes through the exact same path (and the same background-removal
-  // step) as one picked from the file input directly.
-  function handleScanCaptured(e: React.ChangeEvent<HTMLInputElement>) {
-    const captured = e.target.files?.[0];
-    if (!captured || !fileInputRef.current) return;
+  // Scan opens a live camera view with OpenCV.js detecting the stamp's
+  // edges, then a drag-to-adjust step (components/scan) -- the result
+  // writes into the same visible file input via DataTransfer rather than
+  // tracking its own state, so handleSubmit below (background removal,
+  // then uploadStamp) treats a scanned stamp exactly like one picked from
+  // the file input directly.
+  async function handleScan() {
+    const blob = await scanCamera();
+    if (!blob || !fileInputRef.current) return;
     const dt = new DataTransfer();
-    dt.items.add(captured);
+    dt.items.add(new File([blob], 'stamp.png', { type: 'image/png' }));
     fileInputRef.current.files = dt.files;
   }
 
@@ -57,6 +59,7 @@ export default function UploadStampForm() {
 
   return (
     <div className={styles.uploadCard}>
+      {modal}
       <h2 className={styles.uploadTitle}>Add a stamp</h2>
       <form onSubmit={handleSubmit}>
         <div className={styles.field}>
@@ -81,20 +84,12 @@ export default function UploadStampForm() {
           <label htmlFor="file">Image</label>
           <div className={styles.fileRow}>
             <input id="file" name="file" type="file" accept="image/*" ref={fileInputRef} />
-            {/* Mobile only (page.module.css) -- capture="environment" is
+            {/* Mobile only (page.module.css) -- a live camera view is
                 meaningless without a camera, and desktop's plain file picker
                 above already covers "choose an existing image". */}
-            <button type="button" className={styles.scanBtn} onClick={() => scanInputRef.current?.click()}>
+            <button type="button" className={styles.scanBtn} onClick={handleScan}>
               Scan
             </button>
-            <input
-              ref={scanInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              hidden
-              onChange={handleScanCaptured}
-            />
           </div>
           <span className={styles.hint}>Any background is removed automatically -- no need to pre-clean it.</span>
           {state?.errors?.file && <p className={styles.error}>{state.errors.file}</p>}

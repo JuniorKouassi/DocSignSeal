@@ -27,8 +27,11 @@ function removeNearWhiteBackground(ctx: CanvasRenderingContext2D, width: number,
 }
 
 /* Caps the longest edge so a 12MP camera photo doesn't turn into a
-   multi-megabyte signature/stamp asset. */
-export async function pngBlobFromImageFile(file: File, maxDim = 1600): Promise<Blob> {
+   multi-megabyte signature/stamp asset. Takes a Blob, not specifically a
+   File -- a scan that's already gone through the perspective-correction
+   modal (components/scan) arrives as a plain Blob, not a File, and
+   createImageBitmap works identically either way. */
+export async function pngBlobFromImageFile(file: Blob, maxDim = 1600): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement('canvas');

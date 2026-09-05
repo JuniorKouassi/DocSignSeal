@@ -1,0 +1,137 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--dss-space-3) var(--dss-space-4);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.close {
+  border: 0;
+  background: none;
+  color: #fff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.status {
+  color: #fff;
+  text-align: center;
+  margin-top: 40vh;
+  font-size: 14px;
+}
+
+.videoWrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.display {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* Hugs the canvas exactly (inline-block shrinks to content) -- corner
+   handles and the quad overlay are positioned against this, not .display,
+   since .display is often bigger than a portrait photo in a landscape
+   viewport (see the comment on frameWrapRef in ScanCaptureModal.tsx). */
+.frameWrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  max-height: calc(100vh - 140px);
+}
+
+.frame {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 140px);
+  width: auto;
+  height: auto;
+}
+
+.quadSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.cornerHandle {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  border-radius: 50%;
+  background: var(--dss-navy);
+  border: 3px solid #fff;
+  touch-action: none;
+  cursor: grab;
+}
+
+.actions {
+  flex: none;
+  padding: var(--dss-space-4);
+  display: flex;
+  justify-content: center;
+}
+
+.captureBtn {
+  min-width: 160px;
+  padding: 13px 24px;
+  border-radius: var(--dss-radius-pill);
+  border: 0;
+  background: var(--dss-navy);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.captureBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

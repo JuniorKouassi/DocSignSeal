@@ -16,7 +16,7 @@ import styles from './SignatureFab.module.css';
 export function SignatureFab() {
   const [open, setOpen] = useState(false);
   const t = useT();
-  const { pick, pending, error } = useCreateSignatureFromFile();
+  const { pick, pickScan, pending, error, modal } = useCreateSignatureFromFile();
 
   function close() {
     setOpen(false);
@@ -24,6 +24,7 @@ export function SignatureFab() {
 
   return (
     <>
+      {modal}
       {open && (
         <div className={styles.speed}>
           {error && <p className={styles.error}>{t('sig_error')}</p>}
@@ -48,7 +49,7 @@ export function SignatureFab() {
             type="button"
             className={styles.speedButton}
             disabled={pending}
-            onClick={() => { close(); pick('environment'); }}
+            onClick={() => { close(); pickScan(); }}
           >
             <ScanIcon size={17} />
             {t('scan')}
