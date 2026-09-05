@@ -26,7 +26,7 @@ export default function UploadSignPage() {
             id="file"
             name="file"
             type="file"
-            accept="application/pdf,.pdf,.doc,.docx,.odt,.rtf"
+            accept="application/pdf,.pdf,.doc,.docx,.odt,.rtf,image/jpeg,image/png,image/webp"
           />
           {state?.errors?.file && <p className={styles.error}>{state.errors.file}</p>}
         </div>

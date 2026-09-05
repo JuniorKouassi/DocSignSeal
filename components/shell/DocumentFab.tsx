@@ -1,23 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { useT } from '../i18n/useT';
+import { createSelfDocument } from '../../lib/documents/actions';
 import styles from './DocumentFab.module.css';
 
 /* Scoped to the Documents route only (see app/dashboard/documents/layout.tsx)
    rather than the shared dashboard shell, matching the mockup's FAB
-   appearing only on its Documents screen. "Upload & sign" and "Multi-signer
-   document" are both real -- the former is createSelfDocument's freeform
-   annotate flow, the latter the existing template-upload + field-builder
-   flow (app/dashboard/templates/new), just no longer reached via a
-   "Templates" label now that tab shows the completed-documents register
-   instead. "From Gallery" and "Scan" have no backing implementation yet (no
-   camera/photo picker plumbing exists) so they're visibly present but
-   disabled, same scoping decision as the Signatures speed-dial. */
+   appearing only on its Documents screen. All four options are real:
+   "Upload & sign" and "Multi-signer document" navigate to their own forms;
+   "From Gallery" and "Scan" instead pick/capture a photo on the spot and
+   submit it straight to createSelfDocument, which wraps it into a one-page
+   PDF (lib/documents/actions.ts's wrapImageAsPdf) -- same destination
+   (the annotate view) as any other upload, just no form screen in between.
+   `capture` is the only difference between the two: it's what makes a
+   mobile browser open the camera directly instead of a file/photo picker. */
 export function DocumentFab() {
   const [open, setOpen] = useState(false);
   const t = useT();
+  const [, formAction, pending] = useActionState(createSelfDocument, undefined);
+
+  function pickPhoto(capture?: 'environment') {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    if (capture) input.setAttribute('capture', capture);
+
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.set('title', `${capture ? 'Scan' : 'Photo'} ${new Date().toLocaleDateString()}`);
+      formData.set('file', file);
+      formAction(formData);
+    };
+
+    input.click();
+    setOpen(false);
+  }
 
   return (
     <>
@@ -29,10 +50,10 @@ export function DocumentFab() {
           <Link href="/dashboard/templates/new" className={styles.speedButton} onClick={() => setOpen(false)}>
             {t('multi_signer_doc')}
           </Link>
-          <button type="button" className={styles.speedButton} disabled title={t('coming_soon')}>
+          <button type="button" className={styles.speedButton} disabled={pending} onClick={() => pickPhoto()}>
             {t('from_gallery')}
           </button>
-          <button type="button" className={styles.speedButton} disabled title={t('coming_soon')}>
+          <button type="button" className={styles.speedButton} disabled={pending} onClick={() => pickPhoto('environment')}>
             {t('scan')}
           </button>
         </div>

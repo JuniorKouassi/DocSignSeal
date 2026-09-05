@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { applySignature, applyStamp, applyDate, removeAnnotation } from '../../../../../lib/documents/annotations';
 import { completeSelfSignedDocument } from '../../../../../lib/documents/actions';
-import { SignActionIcon, StampActionIcon, DateActionIcon } from '../../../../../components/icons';
+import { SignActionIcon, StampActionIcon, DateActionIcon, ExpandIcon, RotateIcon } from '../../../../../components/icons';
 import styles from './AnnotateView.module.css';
 
 type Signature = { id: string; isDefault: boolean };
@@ -361,7 +361,11 @@ export function AnnotateView({
                   key={corner}
                   className={`${styles.resizeHandle} ${styles[`handle_${corner}`]}`}
                   onPointerDown={(e) => handleBoxPointerDown(e, corner)}
-                />
+                >
+                  {/* ExpandIcon is drawn along the nw-se diagonal; ne/sw reuse it
+                      rotated a quarter turn rather than needing a second icon. */}
+                  <ExpandIcon size={13} className={corner === 'ne' || corner === 'sw' ? styles.iconRotated : undefined} />
+                </div>
               ))}
               {/* Date is plain text, drawn upright at a fixed size (flatten.mjs) --
                   rotating it wasn't asked for and its box has no real "face" to
@@ -370,7 +374,9 @@ export function AnnotateView({
                 <div
                   className={styles.rotateHandle}
                   onPointerDown={(e) => handleBoxPointerDown(e, 'rotate')}
-                />
+                >
+                  <RotateIcon size={14} />
+                </div>
               )}
             </div>
           )}

@@ -104,6 +104,27 @@ export function GalleryIcon(props: IconProps) {
   );
 }
 
+/* Diagonal double arrow along the nw-se axis -- used on the annotate view's
+   resize handles. ne/sw corners reuse this same icon rotated 90deg in CSS
+   rather than a second icon, since that diagonal is just this one turned a
+   quarter turn. */
+export function ExpandIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M6 14v4h4M18 10V6h-4M6 18l5-5M18 6l-5 5" />
+    </Icon>
+  );
+}
+
+export function RotateIcon(props: IconProps) {
+  return (
+    <Icon {...props}>
+      <path d="M4 12a8 8 0 1 1 2.6 5.9" />
+      <path d="M4 17v-4h4" />
+    </Icon>
+  );
+}
+
 export function PenIcon(props: IconProps) {
   return (
     <Icon {...props}>

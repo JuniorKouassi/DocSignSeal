@@ -175,12 +175,20 @@
    to the opposite corner -- see handleBoxPointerDown. */
 .resizeHandle {
   position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 28px;
   height: 28px;
   border-radius: 50%;
   background: var(--dss-navy);
+  color: #fff;
   border: 3px solid var(--dss-paper);
   touch-action: none;
+}
+
+.iconRotated {
+  transform: rotate(90deg);
 }
 
 .handle_nw {
@@ -215,6 +223,9 @@
    stay above the (rotated) box rather than swinging around it. */
 .rotateHandle {
   position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   left: 50%;
   top: -38px;
   transform: translateX(-50%);
@@ -222,6 +233,7 @@
   height: 26px;
   border-radius: 50%;
   background: var(--dss-navy);
+  color: #fff;
   border: 3px solid var(--dss-paper);
   touch-action: none;
   cursor: grab;

@@ -42,17 +42,19 @@ export default async function SettingsPage() {
       </Link>
 
       <div className={styles.rowItem} data-inert="true">
-        <span>{t('default_ink')}</span>
-      </div>
-      <div className={styles.rowItem} data-inert="true">
         <span>{t('data_retention')}</span>
       </div>
       <div className={styles.rowItem} data-inert="true">
         <span>{t('storage_region')}</span>
       </div>
-      <div className={styles.rowItem} data-inert="true">
+      <Link href="/privacy" target="_blank" className={styles.rowItem}>
         <span>{t('privacy_policy')}</span>
-      </div>
+        <span className={styles.value}>›</span>
+      </Link>
+      <Link href="/terms" target="_blank" className={styles.rowItem}>
+        <span>{t('terms')}</span>
+        <span className={styles.value}>›</span>
+      </Link>
 
       <form action={logout} className={styles.logoutForm}>
         <button type="submit" className={styles.logoutButton}>{t('log_out')}</button>

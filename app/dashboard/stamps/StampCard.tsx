@@ -36,8 +36,14 @@ export default function StampCard({
     });
   }
 
+  // Soft-deletes underneath (archivedAt, not a row removal) -- a stamp
+  // already burned into a completed document's sealed PDF has to keep
+  // meaning something if that document is ever re-verified, so the row and
+  // its file can't actually go away. Labelled "Delete" because from here
+  // it's the same thing the user wants: gone from the list, unusable for
+  // any new document.
   function handleArchive() {
-    if (!window.confirm(`Archive "${name}"? It stays on documents that already used it.`)) return;
+    if (!window.confirm(`Delete "${name}"? It stays on documents that already used it.`)) return;
     setArchiving(true);
     startTransition(async () => {
       await archiveStamp(stampId);
@@ -62,7 +68,7 @@ export default function StampCard({
         </label>
       ))}
       <button type="button" className={styles.archiveBtn} onClick={handleArchive} disabled={archiving}>
-        {archiving ? 'Archiving…' : 'Archive'}
+        {archiving ? 'Deleting…' : 'Delete'}
       </button>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { and, eq, ne } from 'drizzle-orm';
+import { PDFDocument } from 'pdf-lib';
 import { issueToken } from '../../src/audit.mjs';
 import { getCurrentContext } from '../auth/dal';
 import { db } from '../db/client';
@@ -221,16 +222,34 @@ export type CreateSelfDocumentState = { errors?: Record<string, string> } | unde
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB
 const OFFICE_EXTENSIONS = ['doc', 'docx', 'odt', 'rtf'];
+const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
+const IMAGE_PDF_MAX_EDGE = 1000; // points, ~US Letter/A4 scale -- a 4000x3000 camera photo used as-is would make an absurdly large page
 
-/* "Upload & sign": no template, no other signers, no email -- pick a PDF or
-   a Word document, land on its own annotate view
+/* A single photographed/picked page (the mobile "Scan" and "From Gallery"
+   options) wrapped as its own one-page PDF, same as any other source file
+   from here on. No text layer, no OCR -- this is a picture of a document,
+   not a document; annotate/flatten only ever needs to draw marks on top of
+   it, not read it. */
+async function wrapImageAsPdf(bytes: Buffer, mime: string): Promise<Buffer> {
+  const pdf = await PDFDocument.create();
+  const image = mime === 'image/png' ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+  const scale = Math.min(1, IMAGE_PDF_MAX_EDGE / Math.max(image.width, image.height));
+  const width = image.width * scale;
+  const height = image.height * scale;
+  const page = pdf.addPage([width, height]);
+  page.drawImage(image, { x: 0, y: 0, width, height });
+  return Buffer.from(await pdf.save());
+}
+
+/* "Upload & sign": no template, no other signers, no email -- pick a PDF, a
+   Word document, or a photo, land on its own annotate view
    (app/dashboard/documents/[id]/annotate) and place your own marks directly
    on it. The one signer is the uploader themselves; there is no token,
    since nothing outside this authenticated session ever needs to open this
    document. A Word file goes through the same Gotenberg conversion as
-   lib/conversions/actions.ts's standalone "Convert a file" tool before
-   anything else happens -- from here on the document is a PDF like any
-   other, converted or not. */
+   lib/conversions/actions.ts's standalone "Convert a file" tool, and an
+   image gets wrapped into a one-page PDF (wrapImageAsPdf) -- from here on
+   the document is a PDF like any other, converted or not. */
 export async function createSelfDocument(_state: CreateSelfDocumentState, formData: FormData): Promise<CreateSelfDocumentState> {
   const { user, organization } = await getCurrentContext();
 
@@ -244,9 +263,10 @@ export async function createSelfDocument(_state: CreateSelfDocumentState, formDa
     errors.file = 'Choose a file.';
   } else {
     const isPdf = file.type === 'application/pdf';
+    const isImage = IMAGE_MIMES.includes(file.type);
     extension = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() : undefined;
     const isOffice = extension && OFFICE_EXTENSIONS.includes(extension);
-    if (!isPdf && !isOffice) errors.file = 'Only PDF, .doc, .docx, .odt, or .rtf files are supported.';
+    if (!isPdf && !isImage && !isOffice) errors.file = 'Only PDF, a photo, or .doc/.docx/.odt/.rtf files are supported.';
     else if (file.size > MAX_UPLOAD_BYTES) errors.file = 'File is larger than 25MB.';
   }
   if (Object.keys(errors).length) return { errors };
@@ -254,10 +274,21 @@ export async function createSelfDocument(_state: CreateSelfDocumentState, formDa
   const upload = file as File;
   const originalBytes = Buffer.from(await upload.arrayBuffer());
   const isPdf = upload.type === 'application/pdf';
+  const isImage = IMAGE_MIMES.includes(upload.type);
 
+  // A wrapped photo is already exactly one page -- known immediately,
+  // no reason to also ask the render-service container to count it.
   let bytes: Buffer;
+  let knownPageCount: number | null = null;
   if (isPdf) {
     bytes = originalBytes;
+  } else if (isImage) {
+    try {
+      bytes = await wrapImageAsPdf(originalBytes, upload.type);
+      knownPageCount = 1;
+    } catch {
+      return { errors: { file: 'Could not read this image.' } };
+    }
   } else {
     try {
       bytes = await convertOfficeDocumentToPdf(originalBytes, upload.name);
@@ -276,7 +307,9 @@ export async function createSelfDocument(_state: CreateSelfDocumentState, formDa
   // Render container on either service are external latency this
   // application code can't compress further.
   const [pageCountOutcome, storedFile] = await Promise.all([
-    getPageCount(bytes).then((n) => ({ ok: true as const, n })).catch(() => ({ ok: false as const })),
+    knownPageCount !== null
+      ? Promise.resolve({ ok: true as const, n: knownPageCount })
+      : getPageCount(bytes).then((n) => ({ ok: true as const, n })).catch(() => ({ ok: false as const })),
     storeFile({ organizationId: organization.id, bytes, mime: 'application/pdf', extension: 'pdf' }),
   ]);
 
