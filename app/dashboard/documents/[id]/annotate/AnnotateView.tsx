@@ -282,7 +282,11 @@ export function AnnotateView({
   }
 
   const placedOnPage = placed.filter((a) => a.page === page);
-  const hasSignature = placed.some((a) => a.type === 'signature');
+  // Any one of signature, stamp, or date is enough to save -- not
+  // specifically a signature. Requiring a signature made it impossible to
+  // save a document that only needed a stamp or a date, which are valid,
+  // complete marks on their own.
+  const hasMark = placed.length > 0;
 
   return (
     <div className={styles.screen}>
@@ -292,7 +296,7 @@ export function AnnotateView({
           <b>{documentTitle}</b>
           <span>{page} of {pageCount}</span>
         </div>
-        <button type="button" className={styles.save} onClick={handleSave} disabled={saving || !hasSignature}>
+        <button type="button" className={styles.save} onClick={handleSave} disabled={saving || !hasMark}>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>

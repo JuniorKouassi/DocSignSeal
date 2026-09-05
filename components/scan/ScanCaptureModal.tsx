@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { detectEdgesOffThread } from '../../lib/shared/scanEdgeWorker';
+import { detectEdgesOffThread, preloadOpenCv } from '../../lib/shared/scanEdgeWorker';
 import { warpToRect, averageEdgeSize, type Point } from '../../lib/shared/perspectiveWarp';
 import styles from './ScanCaptureModal.module.css';
 
@@ -50,6 +50,12 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+
+    // Kicked off before anything else, including the camera permission
+    // prompt -- OpenCV's one-time load in the worker then runs in parallel
+    // with the user granting permission and framing the shot, instead of
+    // only starting once the live view is already up.
+    preloadOpenCv();
 
     async function start() {
       try {

@@ -119,7 +119,16 @@ function orderCorners(points) {
 }
 
 self.onmessage = async (e) => {
-  const { id, bitmap, width, height } = e.data;
+  const { id, bitmap, width, height, type } = e.data;
+
+  // Fire-and-forget: lets the main thread kick off OpenCV's one-time load
+  // as soon as the scan modal opens, well before the first real frame is
+  // ready to detect (see scanEdgeWorker.ts's preloadOpenCv).
+  if (type === 'warm') {
+    loadCv().catch(() => {});
+    return;
+  }
+
   try {
     const cv = await loadCv();
     const canvas = new OffscreenCanvas(width, height);

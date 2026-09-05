@@ -1,7 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import { PDFDocument } from 'pdf-lib';
 import { issueToken } from '../../src/audit.mjs';
 import { getCurrentContext } from '../auth/dal';
@@ -388,9 +388,12 @@ export async function completeSelfSignedDocument(documentId: string): Promise<Co
   const signer = signers.find((s) => s.email === user.email);
   if (!signer) return { ok: false, error: 'You are not a signer on this document.' };
 
-  const placedSignatures = await db.select().from(annotations)
-    .where(and(eq(annotations.documentId, documentId), eq(annotations.type, 'signature')));
-  if (placedSignatures.length === 0) return { ok: false, error: 'Place your signature on the document first.' };
+  // Any one of signature, stamp, or date is a complete, valid mark on its
+  // own -- requiring a signature specifically made it impossible to
+  // complete a document that only needed a stamp or a date.
+  const placedMarks = await db.select().from(annotations)
+    .where(and(eq(annotations.documentId, documentId), inArray(annotations.type, ['signature', 'stamp', 'date'])));
+  if (placedMarks.length === 0) return { ok: false, error: 'Place a signature, stamp, or date on the document first.' };
 
   const [claimed] = await db.update(documentSigners)
     .set({ status: 'signed', signedAt: new Date() })

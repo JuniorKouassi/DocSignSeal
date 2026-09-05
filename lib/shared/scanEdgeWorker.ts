@@ -55,6 +55,17 @@ function getWorker(): Worker | null {
   return worker;
 }
 
+// Starts OpenCV's one-time load in the worker immediately, without waiting
+// for a frame to detect. Call this the instant the scan modal opens (before
+// the camera permission prompt even resolves) so that multi-second load
+// happens in parallel with the user granting permission and framing the
+// shot, instead of only starting once the live view appears -- that's the
+// difference between the auto-detect outline showing up almost immediately
+// versus several seconds into looking at the camera.
+export function preloadOpenCv(): void {
+  getWorker()?.postMessage({ type: 'warm' });
+}
+
 export function detectEdgesOffThread(bitmap: ImageBitmap, width: number, height: number): Promise<Point[] | null> {
   const w = getWorker();
   if (!w) {
