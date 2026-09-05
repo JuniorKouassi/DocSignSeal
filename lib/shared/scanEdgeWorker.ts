@@ -31,8 +31,21 @@ type PendingEntry = { resolve: (points: Point[] | null) => void };
 // happen constantly against a real handheld camera.
 export type OpenCvStatus = 'loading' | 'ready' | 'failed';
 
+// Diagnosed on a real device: OpenCV.js can get stuck compiling its
+// embedded wasm binary indefinitely inside the worker, with no error, no
+// abort, and critically no way for the worker's OWN setTimeout calls to
+// intervene -- a stuck synchronous native call (like a huge
+// WebAssembly.Module compile) blocks that entire single thread, and a
+// timer can't preempt code running on the very thread it's scheduled on.
+// The one thing that CAN interrupt that is this timer, running on the
+// separate main thread: Worker.terminate() forcibly kills a worker even
+// mid native-call, unconditionally. This is the last line of defense that
+// guarantees the UI recovers no matter how badly the worker is stuck.
+const WORKER_INIT_TIMEOUT_MS = 20000;
+
 let worker: Worker | null = null;
 let workerFailed = false;
+let workerInitTimer: number | null = null;
 let nextId = 0;
 const pending = new Map<number, PendingEntry>();
 
@@ -70,6 +83,7 @@ function getWorker(): Worker | null {
   }
   worker.onmessage = (e: MessageEvent<{ id: number; corners: Point[] | null } | { status: OpenCvStatus; error?: string; detail?: string }>) => {
     if ('status' in e.data) {
+      if (e.data.status === 'ready' || e.data.status === 'failed') clearWorkerInitTimer();
       setOpenCvStatus(e.data.status, e.data.detail ?? e.data.error ?? '');
       return;
     }
@@ -85,9 +99,30 @@ function getWorker(): Worker | null {
     // message) -- resolve every in-flight request rather than hang them.
     pending.forEach((entry) => entry.resolve(null));
     pending.clear();
+    clearWorkerInitTimer();
     setOpenCvStatus('failed');
   };
+
+  clearWorkerInitTimer();
+  workerInitTimer = window.setTimeout(() => {
+    workerInitTimer = null;
+    // Give up on this worker for good rather than retrying (and stalling
+    // for another 20s) on every future scan open -- a hang this deep is a
+    // per-device/browser limitation, not a transient blip.
+    worker?.terminate();
+    worker = null;
+    workerFailed = true;
+    setOpenCvStatus('failed', 'timed out starting the scanning engine');
+  }, WORKER_INIT_TIMEOUT_MS);
+
   return worker;
+}
+
+function clearWorkerInitTimer() {
+  if (workerInitTimer !== null) {
+    window.clearTimeout(workerInitTimer);
+    workerInitTimer = null;
+  }
 }
 
 // Starts OpenCV's one-time load in the worker immediately, without waiting
