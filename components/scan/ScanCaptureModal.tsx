@@ -223,7 +223,14 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
         </div>
 
         {phase === 'loading' && <p className={styles.status}>Loading…</p>}
-        {phase === 'error' && <p className={styles.status}>{errorMessage}</p>}
+        {phase === 'error' && (
+          <div className={styles.status}>
+            <p>{errorMessage}</p>
+            <button type="button" className={styles.captureBtn} onClick={() => { stopCamera(); onCancel(); }}>
+              Close
+            </button>
+          </div>
+        )}
 
         {phase === 'live' && (
           <div className={styles.videoWrap}>

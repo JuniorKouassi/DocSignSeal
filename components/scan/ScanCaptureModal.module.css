@@ -38,8 +38,13 @@
 .status {
   color: #fff;
   text-align: center;
-  margin-top: 40vh;
+  margin-top: 30vh;
   font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--dss-space-4);
+  padding: 0 var(--dss-space-4);
 }
 
 .videoWrap {

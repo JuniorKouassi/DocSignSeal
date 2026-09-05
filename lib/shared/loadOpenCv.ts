@@ -3,7 +3,9 @@
    the user given the size, deliberately not loaded on every page. Cached
    as a single promise so a second call (e.g. reopening the scan modal)
    reuses the already-loaded runtime instead of re-fetching or
-   double-initializing it. */
+   double-initializing it -- but only while it's still pending or already
+   succeeded; a failed attempt clears the cache so the next open tries
+   again from scratch instead of replaying the same failure forever. */
 
 declare global {
   interface Window {
@@ -41,12 +43,19 @@ export type OpenCvMat = {
 
 let loadPromise: Promise<OpenCvModule> | null = null;
 
-// @latest rather than a pinned version: I can't verify from here which exact
-// published version tag actually exists on npm/jsdelivr right now, and a
-// wrong pin would just 404. If this ever needs pinning for reproducibility,
-// check https://www.jsdelivr.com/package/npm/@techstark/opencv-js for the
-// real current version first.
-const OPENCV_SRC = 'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@latest/dist/opencv.js';
+// The official OpenCV.org build, not the npm-packaged @techstark/opencv-js
+// this used before -- that one is meant to be `import`ed by a bundler and
+// apparently doesn't reliably attach `window.cv`/fire
+// `onRuntimeInitialized` when just dropped in as a <script> tag, which is
+// exactly this loader's whole approach. This is the same URL every OpenCV.js
+// browser tutorial embeds for that reason. "4.x" is OpenCV.org's own
+// evergreen alias for "latest 4.x build", not a version this app is pinning.
+const OPENCV_SRC = 'https://docs.opencv.org/4.x/opencv.js';
+
+// However it fails, it needs to fail within a bounded time -- otherwise a
+// slow network or a broken build hangs the scan modal on "Loading..."
+// forever with no way out except the modal's own close button.
+const LOAD_TIMEOUT_MS = 20_000;
 
 export function loadOpenCv(): Promise<OpenCvModule> {
   if (loadPromise) return loadPromise;
@@ -57,23 +66,39 @@ export function loadOpenCv(): Promise<OpenCvModule> {
       return;
     }
 
+    const timer = window.setTimeout(() => {
+      reject(new Error('Timed out loading the document-scanning library.'));
+    }, LOAD_TIMEOUT_MS);
+
     const script = document.createElement('script');
     script.src = OPENCV_SRC;
     script.async = true;
-    script.onerror = () => reject(new Error('Could not load the document-scanning library.'));
+    script.onerror = () => {
+      window.clearTimeout(timer);
+      reject(new Error('Could not load the document-scanning library.'));
+    };
     script.onload = () => {
       const cv = window.cv;
       if (!cv) {
+        window.clearTimeout(timer);
         reject(new Error('Document-scanning library failed to initialize.'));
         return;
       }
       if (cv.Mat) {
+        window.clearTimeout(timer);
         resolve(cv);
       } else {
-        cv.onRuntimeInitialized = () => resolve(cv);
+        cv.onRuntimeInitialized = () => {
+          window.clearTimeout(timer);
+          resolve(cv);
+        };
       }
     };
     document.head.appendChild(script);
+  });
+
+  loadPromise.catch(() => {
+    loadPromise = null;
   });
 
   return loadPromise;
