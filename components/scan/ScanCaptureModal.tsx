@@ -54,7 +54,14 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
     async function start() {
       try {
         if (mode === 'camera') {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+          // `ideal`, not `exact` -- a hint the browser can fall back from
+          // instead of an OverconstrainedError on a camera that can't hit
+          // 4K. Without this, browsers commonly default the preview stream
+          // to something like 640x480, which is what was making captures
+          // look soft/low-res even before any JPEG compression.
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 3840 }, height: { ideal: 2160 } },
+          });
           if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
           streamRef.current = stream;
           if (videoRef.current) {
@@ -168,15 +175,54 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
     ctx.stroke();
   }
 
-  function handleCapture() {
+  // Grabbing the live <video> frame (the old approach) captures whatever
+  // the low-latency preview stream happens to look like at that instant --
+  // soft, and often still mid-autofocus-hunt. `ImageCapture.takePhoto()`
+  // asks the camera hardware for an actual still photo through its normal
+  // photo pipeline (full resolution, settled focus/exposure), the same
+  // capture path a native camera app uses. Falls back to the old
+  // draw-the-video-frame approach on browsers without ImageCapture
+  // (Firefox, Safari) -- capture still works there, just softer.
+  async function handleCapture() {
     const video = videoRef.current;
     const canvas = frameRef.current;
+    const track = streamRef.current?.getVideoTracks()[0];
     if (!video || !canvas) return;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d')!.drawImage(video, 0, 0);
+
+    let photoBitmap: ImageBitmap | null = null;
+    if (track && typeof ImageCapture !== 'undefined') {
+      try {
+        photoBitmap = await createImageBitmap(await new ImageCapture(track).takePhoto());
+      } catch {
+        photoBitmap = null; // Fall through to the video-frame capture below.
+      }
+    }
+
+    const priorWidth = video.videoWidth;
+    const priorHeight = video.videoHeight;
+    if (photoBitmap) {
+      canvas.width = photoBitmap.width;
+      canvas.height = photoBitmap.height;
+      canvas.getContext('2d')!.drawImage(photoBitmap, 0, 0);
+      photoBitmap.close();
+    } else {
+      canvas.width = priorWidth;
+      canvas.height = priorHeight;
+      canvas.getContext('2d')!.drawImage(video, 0, 0);
+    }
+
     setNaturalSize({ width: canvas.width, height: canvas.height });
-    setCorners(liveCornersRef.current ?? defaultCorners(canvas.width, canvas.height));
+    // The still photo is very often a different resolution than the live
+    // preview the corners were detected against -- rescale so the outline
+    // still lines up with the document instead of landing off to one side.
+    const detected = liveCornersRef.current;
+    const scaleX = priorWidth ? canvas.width / priorWidth : 1;
+    const scaleY = priorHeight ? canvas.height / priorHeight : 1;
+    setCorners(
+      detected
+        ? detected.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }))
+        : defaultCorners(canvas.width, canvas.height)
+    );
     stopCamera();
     if (detectLoopRef.current) window.clearTimeout(detectLoopRef.current);
     setPhase('review');
@@ -212,15 +258,26 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
     const canvas = frameRef.current;
     if (!canvas || corners.length !== 4) return;
     setConfirming(true);
+    // warpToRect is a synchronous, pure-JS per-pixel remap -- on a large
+    // photo that's real main-thread work (up to a couple of seconds on a
+    // phone), and calling it in the very same tick as setConfirming(true)
+    // never gave React a chance to actually paint "Processing..." first.
+    // The screen looked frozen the whole time even though it wasn't --
+    // this double rAF waits for a real paint before starting the work.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     try {
       const { width, height } = averageEdgeSize(corners);
       const maxEdge = 1600;
       const scale = Math.min(1, maxEdge / Math.max(width, height));
       const out = warpToRect(canvas, naturalSize.width, naturalSize.height, corners, Math.max(1, Math.round(width * scale)), Math.max(1, Math.round(height * scale)));
+      // JPEG, not PNG: this is a photo, and PNG's lossless compression on
+      // photographic content runs several times larger for no visible
+      // benefit here -- that size difference is what was making the step
+      // after "Use this" (uploading the result) feel so slow.
       out.toBlob((blob) => {
         setConfirming(false);
         if (blob) onConfirm(blob); else setErrorMessage('Could not process this image.');
-      }, 'image/png');
+      }, 'image/jpeg', 0.85);
     } catch {
       setConfirming(false);
       setErrorMessage('Could not process this image.');

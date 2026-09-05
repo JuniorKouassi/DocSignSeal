@@ -27,7 +27,7 @@ export default function UploadStampForm() {
     const blob = await scanCamera();
     if (!blob || !fileInputRef.current) return;
     const dt = new DataTransfer();
-    dt.items.add(new File([blob], 'stamp.png', { type: 'image/png' }));
+    dt.items.add(new File([blob], 'stamp.png', { type: blob.type }));
     fileInputRef.current.files = dt.files;
   }
 
