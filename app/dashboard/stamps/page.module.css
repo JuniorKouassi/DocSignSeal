@@ -125,6 +125,39 @@
   color: var(--dss-text-faint);
 }
 
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: var(--dss-space-2);
+}
+
+.fileRow input[type='file'] {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Desktop has no camera to capture from -- the plain file picker already
+   covers "choose an existing image" there. */
+.scanBtn {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .scanBtn {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    padding: 8px 14px;
+    border-radius: var(--dss-radius);
+    border: 1px solid var(--dss-line-strong);
+    background: var(--dss-paper);
+    color: var(--dss-navy);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
 .submit {
   width: 100%;
   margin-top: var(--dss-space-2);

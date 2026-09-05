@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadStamp } from '../../../lib/stamps/actions';
 import { pngBlobFromImageFile } from '../../../lib/shared/imageToPng';
@@ -8,11 +8,26 @@ import styles from './page.module.css';
 
 export default function UploadStampForm() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const scanInputRef = useRef<HTMLInputElement>(null);
   const [state, action, pending] = useActionState(async (prevState: Awaited<ReturnType<typeof uploadStamp>>, formData: FormData) => {
     const result = await uploadStamp(prevState, formData);
     if (!result?.errors) router.refresh();
     return result;
   }, undefined);
+
+  // "Scan with camera" writes into the same visible file input via
+  // DataTransfer rather than tracking its own state -- handleSubmit below
+  // already reads whatever's in that input, so a physical stamp photographed
+  // here goes through the exact same path (and the same background-removal
+  // step) as one picked from the file input directly.
+  function handleScanCaptured(e: React.ChangeEvent<HTMLInputElement>) {
+    const captured = e.target.files?.[0];
+    if (!captured || !fileInputRef.current) return;
+    const dt = new DataTransfer();
+    dt.items.add(captured);
+    fileInputRef.current.files = dt.files;
+  }
 
   // Native <form action> submission can't await an async canvas step before
   // building FormData, so this intercepts submit, normalises whatever image
@@ -64,7 +79,23 @@ export default function UploadStampForm() {
         </div>
         <div className={styles.field}>
           <label htmlFor="file">Image</label>
-          <input id="file" name="file" type="file" accept="image/*" />
+          <div className={styles.fileRow}>
+            <input id="file" name="file" type="file" accept="image/*" ref={fileInputRef} />
+            {/* Mobile only (page.module.css) -- capture="environment" is
+                meaningless without a camera, and desktop's plain file picker
+                above already covers "choose an existing image". */}
+            <button type="button" className={styles.scanBtn} onClick={() => scanInputRef.current?.click()}>
+              Scan
+            </button>
+            <input
+              ref={scanInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              hidden
+              onChange={handleScanCaptured}
+            />
+          </div>
           <span className={styles.hint}>Any background is removed automatically -- no need to pre-clean it.</span>
           {state?.errors?.file && <p className={styles.error}>{state.errors.file}</p>}
         </div>

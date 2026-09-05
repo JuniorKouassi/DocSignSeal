@@ -222,17 +222,33 @@ export type CreateSelfDocumentState = { errors?: Record<string, string> } | unde
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB
 const OFFICE_EXTENSIONS = ['doc', 'docx', 'odt', 'rtf'];
-const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
 const IMAGE_PDF_MAX_EDGE = 1000; // points, ~US Letter/A4 scale -- a 4000x3000 camera photo used as-is would make an absurdly large page
+
+/* Some mobile browser/camera combinations hand back a captured photo with
+   an unhelpful or missing `type` (empty string, a generic
+   "application/octet-stream", or an "image/jpg" that isn't quite the
+   standard "image/jpeg") -- trusting the reported MIME was rejecting real
+   photos outright ("shows error whenever a scan ends"). Sniffing the actual
+   file signature is what every format-detection library does for exactly
+   this reason, and it's a two-byte check, not worth a dependency for. */
+function sniffImageKind(bytes: Buffer): 'png' | 'jpg' | null {
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return 'png';
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpg';
+  return null;
+}
 
 /* A single photographed/picked page (the mobile "Scan" and "From Gallery"
    options) wrapped as its own one-page PDF, same as any other source file
    from here on. No text layer, no OCR -- this is a picture of a document,
    not a document; annotate/flatten only ever needs to draw marks on top of
    it, not read it. */
-async function wrapImageAsPdf(bytes: Buffer, mime: string): Promise<Buffer> {
+async function wrapImageAsPdf(bytes: Buffer): Promise<Buffer> {
+  const kind = sniffImageKind(bytes);
+  if (!kind) throw new Error('Unrecognized image format');
+
   const pdf = await PDFDocument.create();
-  const image = mime === 'image/png' ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
+  const image = kind === 'png' ? await pdf.embedPng(bytes) : await pdf.embedJpg(bytes);
   const scale = Math.min(1, IMAGE_PDF_MAX_EDGE / Math.max(image.width, image.height));
   const width = image.width * scale;
   const height = image.height * scale;
@@ -262,19 +278,24 @@ export async function createSelfDocument(_state: CreateSelfDocumentState, formDa
   if (!(file instanceof File) || file.size === 0) {
     errors.file = 'Choose a file.';
   } else {
-    const isPdf = file.type === 'application/pdf';
-    const isImage = IMAGE_MIMES.includes(file.type);
     extension = file.name.includes('.') ? file.name.split('.').pop()?.toLowerCase() : undefined;
-    const isOffice = extension && OFFICE_EXTENSIONS.includes(extension);
-    if (!isPdf && !isImage && !isOffice) errors.file = 'Only PDF, a photo, or .doc/.docx/.odt/.rtf files are supported.';
+    // Permissive on purpose -- a camera-captured photo's reported `type`
+    // and `name` can't be trusted (see wrapImageAsPdf's comment), so this
+    // only rules out the file up front when neither hint suggests anything
+    // usable. What actually decides PDF vs. image below is the file's real
+    // byte signature, not this guess.
+    const looksPdf = extension === 'pdf' || file.type === 'application/pdf';
+    const looksOffice = extension && OFFICE_EXTENSIONS.includes(extension);
+    const looksImage = file.type.startsWith('image/') || (extension != null && IMAGE_EXTENSIONS.includes(extension));
+    if (!looksPdf && !looksOffice && !looksImage) errors.file = 'Only PDF, a photo, or .doc/.docx/.odt/.rtf files are supported.';
     else if (file.size > MAX_UPLOAD_BYTES) errors.file = 'File is larger than 25MB.';
   }
   if (Object.keys(errors).length) return { errors };
 
   const upload = file as File;
   const originalBytes = Buffer.from(await upload.arrayBuffer());
-  const isPdf = upload.type === 'application/pdf';
-  const isImage = IMAGE_MIMES.includes(upload.type);
+  const isPdf = originalBytes.length >= 5 && originalBytes.subarray(0, 5).toString('latin1') === '%PDF-';
+  const imageKind = isPdf ? null : sniffImageKind(originalBytes);
 
   // A wrapped photo is already exactly one page -- known immediately,
   // no reason to also ask the render-service container to count it.
@@ -282,9 +303,9 @@ export async function createSelfDocument(_state: CreateSelfDocumentState, formDa
   let knownPageCount: number | null = null;
   if (isPdf) {
     bytes = originalBytes;
-  } else if (isImage) {
+  } else if (imageKind) {
     try {
-      bytes = await wrapImageAsPdf(originalBytes, upload.type);
+      bytes = await wrapImageAsPdf(originalBytes);
       knownPageCount = 1;
     } catch {
       return { errors: { file: 'Could not read this image.' } };
