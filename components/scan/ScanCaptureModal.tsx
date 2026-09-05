@@ -30,6 +30,7 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
   const [corners, setCorners] = useState<Point[]>([]);
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
   const [confirming, setConfirming] = useState(false);
+  const [liveDetected, setLiveDetected] = useState(false); // drives the "Looking for a document..." / "Document found" label
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const frameRef = useRef<HTMLCanvasElement>(null); // still frame / loaded image, drawn at natural size
@@ -151,12 +152,16 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
     if (cancelledRef.current) return;
     liveCornersRef.current = corners;
     forceOverlayRender();
+    setLiveDetected(corners !== null);
     detectLoopRef.current = window.setTimeout(runDetectionLoop, 250);
   }
 
   // The live overlay is drawn straight onto a canvas each detection tick
   // rather than through React state -- at several times a second that's a
-  // plain imperative redraw, not something that needs a re-render.
+  // plain imperative redraw, not something that needs a re-render. Drawn
+  // bold (translucent fill + corner dots, not just a thin stroke) so a
+  // successful detection is unmistakable at a glance rather than a faint
+  // line easy to miss against a real, busy background.
   function forceOverlayRender() {
     const video = videoRef.current;
     const overlay = document.getElementById('scan-overlay') as HTMLCanvasElement | null;
@@ -169,16 +174,23 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
     if (!detected || video.videoWidth === 0) return;
     const sx = overlay.width / video.videoWidth;
     const sy = overlay.height / video.videoHeight;
-    ctx.strokeStyle = '#3D5A9E';
-    ctx.lineWidth = 3;
+    const points = detected.map((p) => ({ x: p.x * sx, y: p.y * sy }));
+
     ctx.beginPath();
-    detected.forEach((p, i) => {
-      const x = p.x * sx;
-      const y = p.y * sy;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
+    points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
     ctx.closePath();
+    ctx.fillStyle = 'rgba(74, 222, 128, 0.25)';
+    ctx.fill();
+    ctx.strokeStyle = '#4ADE80';
+    ctx.lineWidth = 5;
     ctx.stroke();
+
+    ctx.fillStyle = '#4ADE80';
+    points.forEach((p) => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+      ctx.fill();
+    });
   }
 
   // Grabbing the live <video> frame (the old approach) captures whatever
@@ -318,6 +330,11 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
             so no exception surfaced either). */}
         <div className={styles.videoWrap} hidden={phase !== 'live'}>
           <video ref={videoRef} className={styles.video} playsInline muted />
+          {phase === 'live' && (
+            <p className={liveDetected ? styles.detectHintFound : styles.detectHint}>
+              {liveDetected ? 'Document found' : 'Looking for a document…'}
+            </p>
+          )}
           <canvas id="scan-overlay" className={styles.overlay} />
         </div>
 

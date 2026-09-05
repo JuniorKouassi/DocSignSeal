@@ -67,6 +67,26 @@
   pointer-events: none;
 }
 
+.detectHint,
+.detectHintFound {
+  position: absolute;
+  top: var(--dss-space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 16px;
+  border-radius: var(--dss-radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.detectHintFound {
+  background: rgba(22, 101, 52, 0.75);
+}
+
 .display {
   position: relative;
   flex: 1;
