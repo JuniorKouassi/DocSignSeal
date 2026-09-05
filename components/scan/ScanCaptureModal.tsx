@@ -54,11 +54,16 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
 
     async function start() {
       try {
-        const cv = await loadOpenCv();
-        if (cancelled) return;
-        cvRef.current = cv;
-
         if (mode === 'camera') {
+          // Camera permission and the OpenCV.js download are independent --
+          // starting both at once and awaiting only the camera means the
+          // live preview appears as soon as the user grants permission,
+          // instead of waiting on an 8MB library first. If OpenCV never
+          // loads or fails, the camera view still works: handleCapture
+          // falls back to a full-frame guess (defaultCorners) the user can
+          // drag into place by hand, so a broken detection pipeline no
+          // longer blocks the core "take a photo and crop it" path.
+          const cvPromise = loadOpenCv();
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
           streamRef.current = stream;
@@ -67,7 +72,15 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
             await videoRef.current.play();
           }
           setPhase('live');
-          runDetectionLoop();
+          cvPromise
+            .then((cv) => {
+              if (cancelled) return;
+              cvRef.current = cv;
+              runDetectionLoop();
+            })
+            .catch(() => {
+              // Silent: no live-detection overlay, but capture still works.
+            });
         } else if (file) {
           const bitmap = await createImageBitmap(file);
           if (cancelled) return;
@@ -77,13 +90,30 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
           canvas.getContext('2d')!.drawImage(bitmap, 0, 0);
           bitmap.close();
           setNaturalSize({ width: canvas.width, height: canvas.height });
-          const detected = detectDocumentEdges(cv, canvas);
-          setCorners(detected ?? defaultCorners(canvas.width, canvas.height));
+          setCorners(defaultCorners(canvas.width, canvas.height));
           setPhase('review');
+
+          // Same fallback logic as the camera path: OpenCV only ever
+          // improves the starting corners here, it's never required to
+          // show the review step at all.
+          loadOpenCv()
+            .then((cv) => {
+              if (cancelled) return;
+              const detected = detectDocumentEdges(cv, canvas);
+              if (detected) setCorners(detected);
+            })
+            .catch(() => {
+              // Silent: the full-frame guess set above stays as-is.
+            });
         }
-      } catch {
+      } catch (err) {
         if (!cancelled) {
-          setErrorMessage(mode === 'camera' ? 'Could not access the camera.' : 'Could not load this image.');
+          // The actual message, not a canned one -- this is the one part of
+          // the whole scan feature that can't be tested without a real
+          // camera/browser, so surfacing what really failed (permission
+          // denied, no camera, insecure context, etc.) matters more here
+          // than a polished-sounding generic string.
+          setErrorMessage(err instanceof Error ? err.message : 'Something went wrong.');
           setPhase('error');
         }
       }
