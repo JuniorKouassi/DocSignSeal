@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { loadOpenCv, type OpenCvModule } from '../../lib/shared/loadOpenCv';
-import { detectDocumentEdges } from '../../lib/shared/detectDocumentEdges';
+import { detectEdgesOffThread } from '../../lib/shared/scanEdgeWorker';
 import { warpToRect, averageEdgeSize, type Point } from '../../lib/shared/perspectiveWarp';
 import styles from './ScanCaptureModal.module.css';
 
@@ -43,11 +42,11 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
   // exact bug already fixed once in the annotate view for the same reason.
   const frameWrapRef = useRef<HTMLDivElement>(null);
   const displayRef = useRef<HTMLDivElement>(null); // outer scroll/centering box, pointer events only
-  const cvRef = useRef<OpenCvModule | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectLoopRef = useRef<number | null>(null);
   const liveCornersRef = useRef<Point[] | null>(null);
   const dragCornerRef = useRef<Corner | null>(null);
+  const cancelledRef = useRef(false); // guards the async detection loop past unmount, separately from the effect's own `cancelled`
 
   useEffect(() => {
     let cancelled = false;
@@ -55,15 +54,6 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
     async function start() {
       try {
         if (mode === 'camera') {
-          // Camera permission and the OpenCV.js download are independent --
-          // starting both at once and awaiting only the camera means the
-          // live preview appears as soon as the user grants permission,
-          // instead of waiting on an 8MB library first. If OpenCV never
-          // loads or fails, the camera view still works: handleCapture
-          // falls back to a full-frame guess (defaultCorners) the user can
-          // drag into place by hand, so a broken detection pipeline no
-          // longer blocks the core "take a photo and crop it" path.
-          const cvPromise = loadOpenCv();
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
           if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
           streamRef.current = stream;
@@ -72,39 +62,28 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
             await videoRef.current.play();
           }
           setPhase('live');
-          cvPromise
-            .then((cv) => {
-              if (cancelled) return;
-              cvRef.current = cv;
-              runDetectionLoop();
-            })
-            .catch(() => {
-              // Silent: no live-detection overlay, but capture still works.
-            });
+          // Detection (including OpenCV's own one-time load) runs entirely
+          // in a Worker -- see lib/shared/scanEdgeWorker.ts -- so kicking it
+          // off here can't delay or block the live camera view.
+          runDetectionLoop();
         } else if (file) {
           const bitmap = await createImageBitmap(file);
-          if (cancelled) return;
+          if (cancelled) { bitmap.close(); return; }
           const canvas = frameRef.current!;
           canvas.width = bitmap.width;
           canvas.height = bitmap.height;
           canvas.getContext('2d')!.drawImage(bitmap, 0, 0);
-          bitmap.close();
           setNaturalSize({ width: canvas.width, height: canvas.height });
           setCorners(defaultCorners(canvas.width, canvas.height));
           setPhase('review');
 
-          // Same fallback logic as the camera path: OpenCV only ever
+          // Same fallback logic as the camera path: detection only ever
           // improves the starting corners here, it's never required to
-          // show the review step at all.
-          loadOpenCv()
-            .then((cv) => {
-              if (cancelled) return;
-              const detected = detectDocumentEdges(cv, canvas);
-              if (detected) setCorners(detected);
-            })
-            .catch(() => {
-              // Silent: the full-frame guess set above stays as-is.
-            });
+          // show the review step at all. `bitmap` is transferred to the
+          // worker (already drawn above, so done with it on this side).
+          detectEdgesOffThread(bitmap, canvas.width, canvas.height).then((detected) => {
+            if (!cancelled && detected) setCorners(detected);
+          });
         }
       } catch (err) {
         if (!cancelled) {
@@ -122,6 +101,7 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
     start();
     return () => {
       cancelled = true;
+      cancelledRef.current = true;
       stopCamera();
       if (detectLoopRef.current) window.clearTimeout(detectLoopRef.current);
     };
@@ -141,19 +121,22 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
 
   // Runs roughly 4x/second, not every animation frame -- OpenCV's contour
   // pipeline on a full camera frame is real work, and the overlay only
-  // needs to look "live", not track every single frame.
-  function runDetectionLoop() {
+  // needs to look "live", not track every single frame. The actual
+  // detection happens in a Worker (scanEdgeWorker.ts); this loop only ever
+  // does cheap main-thread work (grabbing a frame, waiting for the result),
+  // so it can't be the thing that freezes the page the way running OpenCV
+  // inline used to.
+  async function runDetectionLoop() {
+    if (cancelledRef.current) return;
     const video = videoRef.current;
-    const cv = cvRef.current;
-    if (!video || !cv || video.readyState < 2) {
+    if (!video || video.readyState < 2) {
       detectLoopRef.current = window.setTimeout(runDetectionLoop, 200);
       return;
     }
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d')!.drawImage(video, 0, 0);
-    liveCornersRef.current = detectDocumentEdges(cv, canvas);
+    const bitmap = await createImageBitmap(video);
+    const corners = await detectEdgesOffThread(bitmap, video.videoWidth, video.videoHeight);
+    if (cancelledRef.current) return;
+    liveCornersRef.current = corners;
     forceOverlayRender();
     detectLoopRef.current = window.setTimeout(runDetectionLoop, 250);
   }
@@ -262,12 +245,18 @@ export function ScanCaptureModal({ mode, file, onConfirm, onCancel }: Props) {
           </div>
         )}
 
-        {phase === 'live' && (
-          <div className={styles.videoWrap}>
-            <video ref={videoRef} className={styles.video} playsInline muted />
-            <canvas id="scan-overlay" className={styles.overlay} />
-          </div>
-        )}
+        {/* Always mounted, not just while phase === 'live' -- start() needs
+            videoRef.current to already exist the moment the camera stream
+            resolves (it assigns srcObject and calls play() before setPhase
+            ever runs), so mounting the element only after phase flips to
+            'live' left the ref null: srcObject was silently never set, the
+            video element mounted empty, and the modal showed a black frame
+            forever with no error (play() had already resolved on nothing,
+            so no exception surfaced either). */}
+        <div className={styles.videoWrap} hidden={phase !== 'live'}>
+          <video ref={videoRef} className={styles.video} playsInline muted />
+          <canvas id="scan-overlay" className={styles.overlay} />
+        </div>
 
         {/* Always mounted (used to hold the still frame / loaded image at
             native resolution for warpToRect), just visually hidden until
