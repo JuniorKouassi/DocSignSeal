@@ -77,6 +77,16 @@
   touch-action: none;
 }
 
+/* An author rule's `display: flex` above beats the browser's own
+   `[hidden] { display: none }` rule at equal specificity, so the [hidden]
+   attribute alone left this panel visible (and still claiming its flex: 1
+   share of height) even while the live camera view was showing -- the
+   solid black band that appeared below the video. This rule wins on
+   specificity and actually hides it. */
+.display[hidden] {
+  display: none;
+}
+
 /* Hugs the canvas exactly (inline-block shrinks to content) -- corner
    handles and the quad overlay are positioned against this, not .display,
    since .display is often bigger than a portrait photo in a landscape
