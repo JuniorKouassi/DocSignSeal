@@ -32,7 +32,8 @@ export function DocsIcon(props: IconProps) {
   );
 }
 
-// Page + ruled lines (filled, evenodd) plus a stroked signature squiggle --
+// A pen (filled, rotated 45deg from a plain vertical shape rather than
+// hand-authored diagonal coordinates) plus a stroked signature squiggle --
 // mixes fill and stroke on top of Icon()'s stroke-only default, so the
 // filled sub-path explicitly overrides fill/stroke rather than inheriting
 // the wrapper's fill="none". Verified by rendering at every real size/color
@@ -41,14 +42,15 @@ export function DocsIcon(props: IconProps) {
 export function SignaturesIcon(props: IconProps) {
   return (
     <Icon {...props}>
+      <g fill="currentColor" stroke="none" transform="rotate(45 12 12)">
+        <rect x="10.4" y="1" width="3.2" height="4.2" rx="0.6" />
+        <rect x="10.6" y="5.2" width="2.8" height="10.5" />
+        <path d="M10.6 15.7h2.8l-1.4 4.3z" />
+      </g>
       <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        fill="currentColor"
-        stroke="none"
-        d="M4 2h10.6L19 6.4V21a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm2.3 5.3h9.4v1.5H6.3zm0 3.2h9.4v1.5H6.3z"
+        d="M3.2 17.2c-.8 2.6.6 4.3 2.3 3.7 1.6-.6 1-3.3 2.6-2.9 1.1.3.3 2.4 1.7 2.1 1.1-.2.6-1.8 1.7-1.6"
+        strokeWidth={2.1}
       />
-      <path d="M5.7 18.6c.6-1.9 1.5-3.2 2.4-3.2.8 0 1.1.9 1.4 1.7.2.8.7.9 1.1-.1.5-1 1-1.4 1.6-.7" strokeWidth={1.5} />
     </Icon>
   );
 }

@@ -59,8 +59,12 @@
 .logoutButton {
   width: 100%;
   background: none;
-  color: var(--dss-navy);
-  border: 1px solid var(--dss-line-strong);
+  /* The design system's own "danger" red (--dss-declined-fg), not a new
+     one-off color -- signing out isn't destructive like a decline, but it's
+     the same "this ends your current state" register the token already
+     covers. */
+  color: var(--dss-declined-fg);
+  border: 1px solid var(--dss-declined-fg);
   border-radius: var(--dss-radius);
   padding: 14px;
   font-size: 15px;
