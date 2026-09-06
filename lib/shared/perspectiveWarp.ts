@@ -92,16 +92,26 @@ export function warpToRect(source: CanvasImageSource, sourceW: number, sourceH: 
   for (let dy = 0; dy < destHeight; dy++) {
     for (let dx = 0; dx < destWidth; dx++) {
       const { x: sx, y: sy } = applyHomography(homography, dx, dy);
-      const sxi = Math.round(sx);
-      const syi = Math.round(sy);
+      // Clamped, not left blank when out of bounds: the 4 corners are
+      // hand-dragged (and this same math runs on auto-detected corners
+      // too), so a source coordinate landing a pixel or two past the
+      // photo's actual edge -- from imprecise dragging, or plain rounding
+      // right at the boundary -- is routine, not exceptional. Leaving
+      // those destination pixels untouched left them at createImageData's
+      // default fully-transparent black, which then flattens to solid
+      // black once exported as JPEG (no alpha channel) -- a black
+      // border/patch that the background-removal step correctly reads as
+      // ink and refuses to clear, which is what "background wasn't
+      // removed" actually was. Clamping to the nearest real edge pixel
+      // means every destination pixel is always real photo content.
+      const sxi = Math.max(0, Math.min(sourceW - 1, Math.round(sx)));
+      const syi = Math.max(0, Math.min(sourceH - 1, Math.round(sy)));
       const outIdx = (dy * destWidth + dx) * 4;
-      if (sxi >= 0 && sxi < sourceW && syi >= 0 && syi < sourceH) {
-        const srcIdx = (syi * sourceW + sxi) * 4;
-        outData.data[outIdx] = srcData.data[srcIdx];
-        outData.data[outIdx + 1] = srcData.data[srcIdx + 1];
-        outData.data[outIdx + 2] = srcData.data[srcIdx + 2];
-        outData.data[outIdx + 3] = srcData.data[srcIdx + 3];
-      }
+      const srcIdx = (syi * sourceW + sxi) * 4;
+      outData.data[outIdx] = srcData.data[srcIdx];
+      outData.data[outIdx + 1] = srcData.data[srcIdx + 1];
+      outData.data[outIdx + 2] = srcData.data[srcIdx + 2];
+      outData.data[outIdx + 3] = srcData.data[srcIdx + 3];
     }
   }
 
