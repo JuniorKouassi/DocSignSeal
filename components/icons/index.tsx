@@ -172,30 +172,6 @@ function SolidIcon({ size = 19, className, children }: IconProps & { children: R
   );
 }
 
-export function SignDocumentIcon(props: IconProps) {
-  return (
-    <SolidIcon {...props}>
-      {/* Page outline with 2 ruled lines punched out via evenodd -- reads
-          correctly against any background, not just an assumed white one.
-          Signature is a stroked squiggle (a filled shape this thin didn't
-          render visibly at actual toolbar size, verified by rendering both
-          at 22px before picking this version). */}
-      <path
-        fillRule="evenodd"
-        clipRule="evenodd"
-        d="M4 2h10.6L19 6.4V21a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm2.3 5.3h9.4v1.5H6.3zm0 3.2h9.4v1.5H6.3z"
-      />
-      <path
-        d="M5.7 18.6c.6-1.9 1.5-3.2 2.4-3.2.8 0 1.1.9 1.4 1.7.2.8.7.9 1.1-.1.5-1 1-1.4 1.6-.7"
-        fill="none"
-        stroke="var(--dss-navy)"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
-    </SolidIcon>
-  );
-}
-
 export function StampSolidIcon(props: IconProps) {
   return (
     <SolidIcon {...props}>
