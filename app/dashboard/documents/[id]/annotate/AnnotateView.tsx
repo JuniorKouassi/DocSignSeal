@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { applySignature, applyStamp, applyDate, removeAnnotation } from '../../../../../lib/documents/annotations';
 import { completeSelfSignedDocument } from '../../../../../lib/documents/actions';
-import { SignActionIcon, StampActionIcon, DateActionIcon, ExpandIcon, RotateIcon } from '../../../../../components/icons';
+import { SignActionIcon, SignDocumentIcon, StampSolidIcon, DateCalendarIcon, ExpandIcon, RotateIcon } from '../../../../../components/icons';
 import styles from './AnnotateView.module.css';
 
 type Signature = { id: string; isDefault: boolean };
@@ -430,17 +430,17 @@ export function AnnotateView({
       {toolbarOpen ? (
         <div className={styles.toolbar}>
           <button type="button" className={styles.toolbarBtn} onClick={() => setSheet('signature')}>
-            <SignActionIcon size={22} />
+            <SignDocumentIcon size={22} />
             <span>Sign</span>
           </button>
           {stamps.length > 0 && (
             <button type="button" className={styles.toolbarBtn} onClick={() => setSheet('stamp')}>
-              <StampActionIcon size={22} />
+              <StampSolidIcon size={22} />
               <span>Stamp</span>
             </button>
           )}
           <button type="button" className={styles.toolbarBtn} onClick={() => choose('date', null, new Date().toLocaleDateString())}>
-            <DateActionIcon size={22} />
+            <DateCalendarIcon size={22} />
             <span>Date</span>
           </button>
         </div>

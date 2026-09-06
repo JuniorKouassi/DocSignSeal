@@ -61,19 +61,6 @@ export function SignActionIcon(props: IconProps) {
   return SignaturesIcon(props);
 }
 
-export function StampActionIcon(props: IconProps) {
-  return StampsIcon(props);
-}
-
-export function DateActionIcon(props: IconProps) {
-  return (
-    <Icon {...props}>
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M8 3v4M16 3v4M3 11h18" />
-    </Icon>
-  );
-}
-
 export function TextActionIcon(props: IconProps) {
   return (
     <Icon {...props}>
@@ -139,5 +126,64 @@ export function ScanIcon(props: IconProps) {
     <Icon {...props}>
       <path d="M4 8V5a1 1 0 0 1 1-1h3M20 8V5a1 1 0 0 0-1-1h-3M4 16v3a1 1 0 0 0 1 1h3M20 16v3a1 1 0 0 1-1 1h-3" />
     </Icon>
+  );
+}
+
+/* Solid (filled, not stroked) icons matching the reference art given for the
+   annotate toolbar's Sign/Stamp/Date buttons -- more detailed/illustrative
+   than the plain nav icons above, and hardcoded to the site's navy rather
+   than currentColor since they're only ever used on a light toolbar
+   background, unlike SignActionIcon's other use on the navy signFab button
+   (white icon there; navy-on-navy would disappear). */
+function SolidIcon({ size = 19, className, children }: IconProps & { children: React.ReactNode }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="var(--dss-navy)" className={className}>
+      {children}
+    </svg>
+  );
+}
+
+export function SignDocumentIcon(props: IconProps) {
+  return (
+    <SolidIcon {...props}>
+      {/* Page outline with 2 ruled lines punched out via evenodd -- reads
+          correctly against any background, not just an assumed white one.
+          Signature is a stroked squiggle (a filled shape this thin didn't
+          render visibly at actual toolbar size, verified by rendering both
+          at 22px before picking this version). */}
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M4 2h10.6L19 6.4V21a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zm2.3 5.3h9.4v1.5H6.3zm0 3.2h9.4v1.5H6.3z"
+      />
+      <path
+        d="M5.7 18.6c.6-1.9 1.5-3.2 2.4-3.2.8 0 1.1.9 1.4 1.7.2.8.7.9 1.1-.1.5-1 1-1.4 1.6-.7"
+        fill="none"
+        stroke="var(--dss-navy)"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </SolidIcon>
+  );
+}
+
+export function StampSolidIcon(props: IconProps) {
+  return (
+    <SolidIcon {...props}>
+      <path d="M12 2.2c-2.1 0-3.7 1.9-3.7 4 0 1.5.8 2.5 1.5 3.3.5.6.9 1 .9 1.5v.2c-.5.2-.8.6-.8 1 0 .3.1.5.3.7H6.8c-.8 0-1.4.6-1.4 1.4v1.7l-.7.3c-.4.2-.6.5-.6.9v.7c0 .3.2.5.5.5h14.8c.3 0 .5-.2.5-.5v-.7c0-.4-.2-.7-.6-.9l-.7-.3v-1.7c0-.8-.6-1.4-1.4-1.4h-3.4c.2-.2.3-.4.3-.7 0-.4-.3-.8-.8-1v-.2c0-.5.4-.9.9-1.5.7-.8 1.5-1.8 1.5-3.3 0-2.1-1.6-4-3.7-4z" />
+      <ellipse cx="12" cy="20.7" rx="5.6" ry="1" />
+    </SolidIcon>
+  );
+}
+
+export function DateCalendarIcon(props: IconProps) {
+  return (
+    <SolidIcon {...props}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V3a1 1 0 0 1 1-1zM4 10v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9H4zm2 2.3h2.4v2.2H6zm4.8 0h2.4v2.2h-2.4zm4.8 0H18v2.2h-2.4zM6 16.2h2.4v2.2H6zm4.8 0h2.4v2.2h-2.4z"
+      />
+    </SolidIcon>
   );
 }
