@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useRef } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { uploadStamp } from '../../../lib/stamps/actions';
 import { pngBlobFromImageFile } from '../../../lib/shared/imageToPng';
@@ -11,6 +11,14 @@ export default function UploadStampForm() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { scanCamera, modal } = useScanCapture();
+  // useActionState's own `pending` only covers the server action call --
+  // the background-removal pass in handleSubmit runs before that and can
+  // take a moment on a full-resolution photo, during which `pending` was
+  // still false and the button silently sat at "Add stamp" with no
+  // indication anything was happening (reported: upload "doesn't show...
+  // it's actually not showing anything until the file just comes
+  // suddenly"). This covers that earlier gap too.
+  const [processing, setProcessing] = useState(false);
   const [state, action, pending] = useActionState(async (prevState: Awaited<ReturnType<typeof uploadStamp>>, formData: FormData) => {
     const result = await uploadStamp(prevState, formData);
     if (!result?.errors) router.refresh();
@@ -44,9 +52,14 @@ export default function UploadStampForm() {
     const formData = new FormData(form);
     const file = formData.get('file');
 
+    setProcessing(true);
     if (file instanceof File && file.size > 0) {
       try {
-        const png = await pngBlobFromImageFile(file);
+        // A stamp renders at a small fraction of a page (STAMP_DEFAULT_SIZE
+        // is 15% of page width/height) -- 1600px of source detail buys
+        // nothing there but slower client-side processing and a bigger
+        // upload. 700px is still sharp at that display size.
+        const png = await pngBlobFromImageFile(file, 700);
         formData.set('file', png, 'stamp.png');
       } catch {
         // Fall through with the original file -- uploadStamp's own
@@ -55,6 +68,7 @@ export default function UploadStampForm() {
     }
 
     action(formData);
+    setProcessing(false);
   }
 
   return (
@@ -100,8 +114,8 @@ export default function UploadStampForm() {
             {' '}Requires a signature on the same page
           </label>
         </div>
-        <button className={styles.submit} type="submit" disabled={pending}>
-          {pending ? 'Uploading…' : 'Add stamp'}
+        <button className={styles.submit} type="submit" disabled={pending || processing}>
+          {pending || processing ? 'Uploading…' : 'Add stamp'}
         </button>
       </form>
     </div>

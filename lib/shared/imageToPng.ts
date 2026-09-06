@@ -15,15 +15,19 @@ const TILES = 12;
 // from "paper" to "untouched ink" spans.
 const GRADIENT_RANGE = 22;
 // Safety margin above the estimated background level: real paper has
-// fine-grained brightness noise of its own (texture, JPEG compression
-// grain) on top of the broader lighting variation TILES/interpolation
-// already handles -- a narrow margin left that noise sitting in the
-// partial-fade zone instead of fully transparent, showing as faint
-// speckling across the "cleared" background. 28 comfortably covers
-// ordinary photo noise (tested up to +-12) while still leaving well over
-// 100 brightness levels of headroom before it could reach into even
-// fairly light (not just fully saturated) ink.
-const TRANSPARENT_MARGIN = 28;
+// fine-grained brightness noise of its own (texture, and especially JPEG
+// compression grain -- the scan camera path exports at 0.85 quality) on
+// top of the broader lighting variation TILES/interpolation already
+// handles. A narrow margin left that noise sitting in the partial-fade
+// zone instead of fully transparent, showing as visible speckling/haze
+// across the "cleared" background -- worse on a scanned photo than a
+// picked one, since JPEG's block artifacts add more noise than a typical
+// gallery photo's own compression. 45 clears noise up to +-28 brightness
+// levels (tested), the tradeoff being that very faint/pale ink (a gap
+// under ~90 levels from its own paper) softens rather than staying fully
+// opaque -- reasonable, since real stamp/signature ink is virtually always
+// far more saturated than that.
+const TRANSPARENT_MARGIN = 45;
 // How far below the grid's own median estimate a tile's estimate has to
 // fall before it's treated as ink-dominated (unreliable) rather than
 // genuinely dim background -- see computeTileBackgrounds's comment.

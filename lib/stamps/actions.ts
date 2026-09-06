@@ -36,26 +36,36 @@ export async function uploadStamp(_state: StampFormState, formData: FormData): P
   const bytes = Buffer.from(await (file as File).arrayBuffer());
   const stored = await storeFile({ organizationId: organization.id, bytes, mime: 'image/png', extension: 'png' });
 
-  const [stamp] = await db.insert(stamps).values({
-    organizationId: organization.id,
-    name,
-    fileId: stored.id,
-    kind: kind as 'seal' | 'mention' | 'header' | 'custom',
-    defaultInk,
-    requiresCountersignature,
-  }).returning({ id: stamps.id });
+  // Pre-generating the id lets both inserts below go in one transaction
+  // instead of the stamp_permissions insert having to wait on a separate
+  // round trip for the stamps insert's generated id back -- one less
+  // sequential network hop in a path that's already storeFile's own
+  // (encrypt -> upload -> insert) chain plus this.
+  const stampId = crypto.randomUUID();
+  await db.transaction(async (tx) => {
+    await tx.insert(stamps).values({
+      id: stampId,
+      organizationId: organization.id,
+      name,
+      fileId: stored.id,
+      kind: kind as 'seal' | 'mention' | 'header' | 'custom',
+      defaultInk,
+      requiresCountersignature,
+    });
 
-  // Without this, a stamp is unusable by anyone -- including the admin who
-  // just uploaded it -- until someone separately visits this page and
-  // checks a box for themselves. That's not "inferring permission from
-  // role" (HANDOFF.md non-negotiable #6, still fully enforced everywhere a
-  // stamp is applied): it's one real, explicit stamp_permissions row,
-  // written once, for the person who just created the asset.
-  await db.insert(stampPermissions).values({
-    stampId: stamp.id,
-    userId: user.id,
-    canApply: true,
-    grantedBy: user.id,
+    // Without this, a stamp is unusable by anyone -- including the admin
+    // who just uploaded it -- until someone separately visits this page
+    // and checks a box for themselves. That's not "inferring permission
+    // from role" (HANDOFF.md non-negotiable #6, still fully enforced
+    // everywhere a stamp is applied): it's one real, explicit
+    // stamp_permissions row, written once, for the person who just
+    // created the asset.
+    await tx.insert(stampPermissions).values({
+      stampId,
+      userId: user.id,
+      canApply: true,
+      grantedBy: user.id,
+    });
   });
 
   return undefined;
