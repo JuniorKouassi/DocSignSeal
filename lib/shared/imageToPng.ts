@@ -13,17 +13,21 @@
 const TILES = 12;
 // How far below a region's estimated background brightness the gradient
 // from "paper" to "untouched ink" spans.
-const GRADIENT_RANGE = 35;
-// Safety margin above the estimated background level: real paper isn't
-// perfectly flat, so treating pixels slightly darker than the estimate
-// (not just brighter-or-equal) as fully transparent avoids leaving a faint
-// halo from ordinary paper-texture/anti-aliasing noise.
-const TRANSPARENT_MARGIN = 6;
-// An estimated regional background darker than this is almost certainly
-// the ink itself (e.g. a tile that's mostly covered by a large stamp) --
-// clamping is safer than thresholding relative to what's actually the
-// mark's own color.
-const MIN_PLAUSIBLE_BACKGROUND = 130;
+const GRADIENT_RANGE = 22;
+// Safety margin above the estimated background level: real paper has
+// fine-grained brightness noise of its own (texture, JPEG compression
+// grain) on top of the broader lighting variation TILES/interpolation
+// already handles -- a narrow margin left that noise sitting in the
+// partial-fade zone instead of fully transparent, showing as faint
+// speckling across the "cleared" background. 28 comfortably covers
+// ordinary photo noise (tested up to +-12) while still leaving well over
+// 100 brightness levels of headroom before it could reach into even
+// fairly light (not just fully saturated) ink.
+const TRANSPARENT_MARGIN = 28;
+// How far below the grid's own median estimate a tile's estimate has to
+// fall before it's treated as ink-dominated (unreliable) rather than
+// genuinely dim background -- see computeTileBackgrounds's comment.
+const OUTLIER_MARGIN = 35;
 
 /* A single global "background brightness" for the whole photo -- even one
    sampled from the photo itself rather than assumed to be pure white --
@@ -37,10 +41,17 @@ const MIN_PLAUSIBLE_BACKGROUND = 130;
 
    Splitting the image into a grid and estimating "what does background
    measure as here" independently per tile adapts to that gradient instead
-   of averaging over it. Each tile's own 85th-percentile brightness is used
-   as its local background guess: even a tile mostly covered by ink still
-   has some visible border/gap of actual paper in it at that percentile,
-   for any reasonably-sized grid relative to the mark. */
+   of averaging over it. Each tile's own 85th-percentile brightness is a
+   first guess at its local background -- but a tile that's ENTIRELY
+   covered by the mark (a large stamp/signature spanning several tiles) has
+   no real background in it to sample at all: that percentile just reads
+   back the ink's own brightness. Comparing each tile's guess against the
+   grid's own median (most tiles are background, since the mark is smaller
+   than the paper it's on) flags exactly those ink-dominated tiles as
+   unreliable, and they're filled in from their nearest reliable neighbor
+   instead of trusting a number that's actually just the mark's own color
+   -- otherwise ink lighter than that self-referential "background" reads
+   as background too, and gets erased instead of kept. */
 function computeTileBackgrounds(data: Uint8ClampedArray, width: number, height: number): { tileBg: number[]; tileW: number; tileH: number } {
   const tileW = width / TILES;
   const tileH = height / TILES;
@@ -55,10 +66,52 @@ function computeTileBackgrounds(data: Uint8ClampedArray, width: number, height: 
     }
   }
 
-  const tileBg = buckets.map((samples) => {
+  const raw = buckets.map((samples) => {
     samples.sort((a, b) => a - b);
-    return Math.max(MIN_PLAUSIBLE_BACKGROUND, samples[Math.floor(samples.length * 0.85)]);
+    return samples[Math.floor(samples.length * 0.85)];
   });
+
+  const sortedRaw = raw.slice().sort((a, b) => a - b);
+  const median = sortedRaw[Math.floor(sortedRaw.length / 2)];
+  const filled = raw.map((v) => v >= median - OUTLIER_MARGIN);
+  const tileBg = raw.slice();
+
+  let frontier: number[] = [];
+  for (let idx = 0; idx < filled.length; idx++) if (filled[idx]) frontier.push(idx);
+
+  // Every tile looked unreliable -- the mark fills nearly the whole frame,
+  // leaving no tile with enough real background in it to anchor from.
+  // Falling back to the grid's own median is the least-wrong single value
+  // available at that point (same "give up gracefully" spirit as the
+  // simpler global-threshold version this replaced).
+  if (frontier.length === 0) {
+    tileBg.fill(median);
+    return { tileBg, tileW, tileH };
+  }
+
+  // BFS outward from reliable tiles: each unreliable tile inherits its
+  // nearest reliable neighbor's estimate, so an ink-dominated tile is
+  // thresholded against what background actually looks like nearby, not
+  // against its own ink.
+  while (frontier.length > 0) {
+    const next: number[] = [];
+    for (const idx of frontier) {
+      const tx = idx % TILES;
+      const ty = Math.floor(idx / TILES);
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+        const nx = tx + dx;
+        const ny = ty + dy;
+        if (nx < 0 || nx >= TILES || ny < 0 || ny >= TILES) continue;
+        const nIdx = ny * TILES + nx;
+        if (!filled[nIdx]) {
+          tileBg[nIdx] = tileBg[idx];
+          filled[nIdx] = true;
+          next.push(nIdx);
+        }
+      }
+    }
+    frontier = next;
+  }
 
   return { tileBg, tileW, tileH };
 }
