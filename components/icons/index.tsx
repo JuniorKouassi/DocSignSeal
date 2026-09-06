@@ -25,8 +25,9 @@ function Icon({ size = 19, className, children }: IconProps & { children: React.
 export function DocsIcon(props: IconProps) {
   return (
     <Icon {...props}>
-      <path d="M6 3h8l4 4v14H6z" />
-      <path d="M14 3v5h4" />
+      <path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M8.5 12h7M8.5 14.5h7M8.5 17h7M8.5 19h4" />
     </Icon>
   );
 }
@@ -48,12 +49,19 @@ export function StampsIcon(props: IconProps) {
   );
 }
 
-export function SettingsIcon(props: IconProps) {
+// Solid gear+wrench, not the stroke style the other tab icons above use --
+// fill="currentColor" still tracks the tab bar's active/inactive color the
+// same way stroke="currentColor" does, so it still themes correctly there.
+export function SettingsIcon({ size = 19, className }: IconProps) {
   return (
-    <Icon {...props}>
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2" />
-    </Icon>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M20.30,12.00 L22.45,13.00 L22.00,15.21 L19.63,15.27 L17.87,17.87 L18.69,20.10 L16.80,21.34 L15.08,19.71 L12.00,20.30 L11.00,22.45 L8.79,22.00 L8.73,19.63 L6.13,17.87 L3.90,18.69 L2.66,16.80 L4.29,15.08 L3.70,12.00 L1.55,11.00 L2.00,8.79 L4.37,8.73 L6.13,6.13 L5.31,3.90 L7.20,2.66 L8.92,4.29 L12.00,3.70 L13.00,1.55 L15.21,2.00 L15.27,4.37 L17.87,6.13 L20.10,5.31 L21.34,7.20 L19.71,8.92 Z M12 6.3a5.7 5.7 0 1 0 0 11.4 5.7 5.7 0 0 0 0-11.4z"
+      />
+      <path d="M9.3 9.1a2.6 2.6 0 0 1 3.5 2.9l4.7 4.7-1.6 1.6-4.7-4.7a2.6 2.6 0 0 1-3.4-3.4l1.6 1.6 1.2-1.2z" />
+    </svg>
   );
 }
 
