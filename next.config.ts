@@ -10,6 +10,19 @@ const nextConfig: NextConfig = {
   outputFileTracingExcludes: {
     "*": ["./node_modules/next/dist/compiled/@vercel/og/**"],
   },
+  experimental: {
+    serverActions: {
+      // Next.js defaults this to 1MB, which silently rejects the request
+      // (a raw "Body exceeded 1 MB limit" crash, before any of this app's
+      // own file-size validation ever runs) on any file bigger than that --
+      // hit in practice on a PDF upload and on a photographed stamp once
+      // converted to PNG. createSelfDocument/uploadTemplate/uploadStamp
+      // already validate up to 25MB themselves (MAX_UPLOAD_BYTES /
+      // MAX_BYTES); 30MB leaves headroom for multipart/form-data's own
+      // boundary and field-metadata overhead on top of that.
+      bodySizeLimit: "30mb",
+    },
+  },
 };
 
 // Makes Cloudflare bindings (env vars, R2, Images, etc.) available when
