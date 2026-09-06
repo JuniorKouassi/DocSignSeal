@@ -32,26 +32,29 @@ export function DocsIcon(props: IconProps) {
   );
 }
 
-// A pen (filled, rotated 45deg from a plain vertical shape rather than
-// hand-authored diagonal coordinates) plus a stroked signature squiggle --
-// mixes fill and stroke on top of Icon()'s stroke-only default, so the
-// filled sub-path explicitly overrides fill/stroke rather than inheriting
-// the wrapper's fill="none". Verified by rendering at every real size/color
-// this backs (SignActionIcon's white-on-navy FAB, DrawIcon's 17px menu
-// rows, and this icon's own tab-bar use) before shipping.
-export function SignaturesIcon(props: IconProps) {
+// User-provided vector redesign (own 0-736 viewBox, not the shared Icon()
+// wrapper's 24x24 -- kept as its own self-contained SVG rather than
+// rescaling every coordinate down, which would risk introducing rounding
+// errors into curves that don't need to change at all). currentColor for
+// both fill and stroke so it themes correctly across all three places this
+// icon is shared: the Signatures tab (gray/blue active state),
+// SignActionIcon's white icon on the navy signFab, and DrawIcon's 17px
+// rows in the signature-creation menus -- verified by rendering at each of
+// those actual sizes/colors before shipping.
+export function SignaturesIcon({ size = 19, className }: IconProps) {
   return (
-    <Icon {...props}>
-      <g fill="currentColor" stroke="none" transform="rotate(45 12 12)">
-        <rect x="10.4" y="1" width="3.2" height="4.2" rx="0.6" />
-        <rect x="10.6" y="5.2" width="2.8" height="10.5" />
-        <path d="M10.6 15.7h2.8l-1.4 4.3z" />
+    <svg width={size} height={size} viewBox="0 0 736 736" fill="currentColor" className={className}>
+      <g stroke="currentColor" strokeWidth={12} strokeLinejoin="round" strokeLinecap="round" fillRule="evenodd">
+        <path d="M572 42 L690 68 L618 282 L494 239 Z M596 50 L662 65 L645 110 L579 95 Z" />
+        <path d="M476 266 L612 304 L500 578 L390 672 L383 552 Z M402 558 L486 582 L410 632 Z" />
       </g>
-      <path
-        d="M3.2 17.2c-.8 2.6.6 4.3 2.3 3.7 1.6-.6 1-3.3 2.6-2.9 1.1.3.3 2.4 1.7 2.1 1.1-.2.6-1.8 1.7-1.6"
-        strokeWidth={2.1}
-      />
-    </Icon>
+      <g fill="none" stroke="currentColor" strokeWidth={30} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M556 80 C540 60 510 62 503 92 L419 291" />
+      </g>
+      <g fill="none" stroke="currentColor" strokeWidth={40} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M247 368 C250 300 235 262 195 262 C140 262 80 330 55 430 C35 510 45 570 75 600 C100 625 135 620 160 585 C178 560 195 535 205 545 C213 553 210 585 228 598 C245 610 258 590 262 565 C266 545 278 555 283 600 C288 640 310 665 338 670" />
+      </g>
+    </svg>
   );
 }
 
